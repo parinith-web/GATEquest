@@ -1,0 +1,124 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;600;700&family=Fira+Code:wght@400;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 5.5%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 213 94% 68%;
+    --primary-foreground: 0 0% 5.5%;
+
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 16%;
+    --muted-foreground: 220 8% 65%;
+
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 16.5%;
+    --input: 0 0% 16.5%;
+    --ring: 213 94% 68%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar tokens (from GQ-1 / GQ-8) */
+    --sidebar-background: 0 0% 7.5%;
+    --sidebar-foreground: 226 16% 80%;
+    --sidebar-primary: 220 100% 84%;
+    --sidebar-primary-foreground: 220 100% 20%;
+    --sidebar-accent: 0 0% 31%;
+    --sidebar-accent-foreground: 0 0% 7.5%;
+    --sidebar-border: 0 0% 16.5%;
+    --sidebar-ring: 220 100% 84%;
+
+    /* GATEquest design tokens */
+    --gq-bg-main: 0 0% 5.5%;
+    --gq-bg-sidebar: 0 0% 7.5%;
+    --gq-bg-header: 0 0% 7.5%;
+    --gq-bg-card: 0 0% 11%;
+    --gq-bg-card-alt: 0 0% 12.5%;
+    --gq-border: 0 0% 16.5%;
+    --gq-blue: 213 94% 68%;
+    --gq-blue-dim: 213 94% 68%;
+    --gq-text: 0 0% 100%;
+    --gq-text-secondary: 224 14% 84%;
+    --gq-text-muted: 224 8% 62%;
+    --gq-text-dim: 0 0% 53%;
+    /* GQ-1 brand extras */
+    --gq-bg: 0 0% 7.5%;
+    --gq-purple: 239 100% 87%;
+    --gq-active: 0 0% 31%;
+    --gq-heading: 20 10% 89%;
+    --gq-muted: 228 7% 59%;
+    --gq-input-bg: 0 0% 12.5%;
+    --gq-surface: 0 0% 9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body, #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-[#0E0E0E] text-white;
+    font-family: 'Inter', -apple-system, Roboto, Helvetica, sans-serif;
+  }
+
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre, code {
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1C1B1B;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2A2A2A;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4F4F4F;
+  }
+}
+
+@layer utilities {
+  .font-jetbrains {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .font-firacode {
+    font-family: 'Fira Code', monospace;
+  }
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+}

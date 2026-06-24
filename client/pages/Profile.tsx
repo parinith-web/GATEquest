@@ -1,0 +1,445 @@
+import Layout from "@/components/Layout";
+
+// ── Heatmap data generator ───────────────────────────────────────────────────
+function lcgRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+const HEAT_COLORS = [
+  "#353534",                    // 0 = inactive
+  "rgba(93,152,255,0.30)",      // 1 = low
+  "#3B5FB1",                    // 2 = med
+  "#445891",                    // 3 = med-high
+  "rgba(136,179,254,0.60)",     // 4 = bright
+];
+
+function generateHeatmap(): number[] {
+  const rand = lcgRandom(0xDEADBEEF);
+  const weights = [0.15, 0.20, 0.28, 0.22, 0.15];
+  const cumulative = weights.reduce<number[]>((acc, w, i) => {
+    acc.push((acc[i - 1] ?? 0) + w);
+    return acc;
+  }, []);
+
+  return Array.from({ length: 7 * 52 }, () => {
+    const r = rand();
+    return cumulative.findIndex((c) => r < c);
+  });
+}
+
+const heatmapData = generateHeatmap();
+const MONTHS = ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May"];
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function UserHeader() {
+  const xp = 12450;
+  const xpMax = 15000;
+  const pct = (xp / xpMax) * 100;
+
+  return (
+    <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 p-8 rounded-lg border border-gq-border bg-gq-card overflow-hidden relative">
+      {/* Subtle corner decoration */}
+      <div className="absolute top-0 left-0 w-32 h-28 opacity-10 pointer-events-none" />
+
+      {/* Left: avatar + identity */}
+      <div className="flex items-center gap-6">
+        <div className="w-24 h-24 rounded-[36px] bg-[#2A2A2A] overflow-hidden border-2 border-black flex-shrink-0">
+          <img
+            src="https://api.builder.io/api/v1/image/assets/TEMP/fa6924b8a1c533a410f874ec221bd17ca8ea2911?width=240"
+            alt="Parinith_red avatar"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-gq-accent text-[22px] font-bold leading-none tracking-tight">
+            Parinith_red
+          </span>
+          <div className="flex flex-wrap items-center gap-3 mt-1">
+            <div className="px-3 py-1 bg-gq-rank-bg rounded-[2px]">
+              <span className="font-bold text-xs tracking-widest text-[#AEB9D0] uppercase">
+                RANK: #1,240
+              </span>
+            </div>
+            <span className="font-mono text-sm text-gq-text-secondary">
+              Level 42 Architect
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right: XP progress */}
+      <div className="flex flex-col gap-2 w-full sm:w-96 sm:flex-shrink-0">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gq-text-secondary">XP PROGRESSION</span>
+          <span className="text-sm text-gq-accent font-bold">
+            {xp.toLocaleString()} / {xpMax.toLocaleString()}
+          </span>
+        </div>
+        <div className="h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gq-accent rounded-full"
+            style={{
+              width: `${pct}%`,
+              boxShadow: "0 0 10px 0 rgba(173,198,255,0.50)",
+            }}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ActivityMap() {
+  return (
+    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gq-border pb-3">
+        <div className="flex items-center gap-2">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M0 8V0H8V8H0ZM0 18V10H8V18H0ZM10 8V0H18V8H10ZM10 18V10H18V18H10ZM2 6H6V2H2V6ZM12 6H16V2H12V6ZM12 16H16V12H12V16ZM2 16H6V12H2V16Z" fill="#ADC6FF"/>
+          </svg>
+          <span className="text-base text-gq-text-primary">Activity Map</span>
+        </div>
+        <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
+          NODE_UPTIME: 365 DAYS
+        </span>
+      </div>
+
+      {/* Month labels */}
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between px-0">
+          {MONTHS.map((m) => (
+            <span key={m} className="font-mono text-xs text-gq-text-secondary flex-1 text-center first:text-left last:text-right">
+              {m}
+            </span>
+          ))}
+        </div>
+
+        {/* Heatmap grid */}
+        <div
+          className="grid gap-[3px] w-full"
+          style={{
+            gridTemplateColumns: "repeat(52, minmax(0, 1fr))",
+            gridTemplateRows: "repeat(7, 1fr)",
+          }}
+        >
+          {heatmapData.map((level, i) => {
+            const col = Math.floor(i / 7) + 1;
+            const row = (i % 7) + 1;
+            return (
+              <div
+                key={i}
+                className="aspect-square rounded-[2px]"
+                style={{
+                  background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
+                  gridColumn: col,
+                  gridRow: row,
+                }}
+                title={`Level ${level}`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gq-border/30">
+          <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
+            807 contributions in the last year
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-gq-text-secondary mr-1">Less</span>
+            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#353534" }} />
+            <div className="w-3 h-3 rounded-[2px]" style={{ background: "rgba(93, 152, 255, 0.3)" }} />
+            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#3B5FB1" }} />
+            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#445891" }} />
+            <div className="w-3 h-3 rounded-[2px]" style={{ background: "rgba(136, 179, 254, 0.6)" }} />
+            <span className="text-sm text-gq-text-secondary ml-1">More</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SubjectProficiency() {
+  const subjects = [
+    { name: "DSA", pct: 92, label: "92% Mastery" },
+    { name: "OS", pct: 78, label: "78% Mastery" },
+    { name: "DIGITAL LOGIC", pct: 85, label: "85% Mastery" },
+  ];
+
+  return (
+    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
+        <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+          <path d="M6 12L0 6L6 0L7.425 1.425L2.825 6.025L7.4 10.6L6 12ZM14 12L12.575 10.575L17.175 5.975L12.6 1.4L14 0L20 6L14 12Z" fill="#ADC6FF"/>
+        </svg>
+        <span className="text-base text-gq-text-primary">Subject Proficiency</span>
+      </div>
+
+      <div className="flex flex-col gap-6">
+        {subjects.map(({ name, pct, label }) => (
+          <div key={name} className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <span className="font-mono text-sm text-gq-accent">{name}</span>
+              <span className="text-sm text-gq-text-secondary">{label}</span>
+            </div>
+            <div className="h-1.5 bg-[#353534] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gq-accent rounded-full"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TacticalMastery() {
+  return (
+    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 20C8.61667 20 7.31667 19.7375 6.1 19.2125C4.88333 18.6875 3.825 17.975 2.925 17.075C2.025 16.175 1.3125 15.1167 0.7875 13.9C0.2625 12.6833 0 11.3833 0 10C0 8.61667 0.2625 7.31667 0.7875 6.1C1.3125 4.88333 2.025 3.825 2.925 2.925C3.825 2.025 4.88333 1.3125 6.1 0.7875C7.31667 0.2625 8.61667 0 10 0C11.3833 0 12.6833 0.2625 13.9 0.7875C15.1167 1.3125 16.175 2.025 17.075 2.925C17.975 3.825 18.6875 4.88333 19.2125 6.1C19.7375 7.31667 20 8.61667 20 10C20 11.3833 19.7375 12.6833 19.2125 13.9C18.6875 15.1167 17.975 16.175 17.075 17.075C16.175 17.975 15.1167 18.6875 13.9 19.2125C12.6833 19.7375 11.3833 20 10 20ZM10 18C10.9333 18 11.8125 17.8542 12.6375 17.5625C13.4625 17.2708 14.2167 16.8583 14.9 16.325L13.475 14.9C12.9917 15.25 12.4542 15.5208 11.8625 15.7125C11.2708 15.9042 10.65 16 10 16C8.33333 16 6.91667 15.4167 5.75 14.25C4.58333 13.0833 4 11.6667 4 10C4 8.33333 4.58333 6.91667 5.75 5.75C6.91667 4.58333 8.33333 4 10 4C11.6667 4 13.0833 4.58333 14.25 5.75C15.4167 6.91667 16 8.33333 16 10C16 10.65 15.9 11.275 15.7 11.875C15.5 12.475 15.225 13.0167 14.875 13.5L16.3 14.925C16.8333 14.2417 17.25 13.4833 17.55 12.65C17.85 11.8167 18 10.9333 18 10C18 7.76667 17.225 5.875 15.675 4.325C14.125 2.775 12.2333 2 10 2C7.76667 2 5.875 2.775 4.325 4.325C2.775 5.875 2 7.76667 2 10C2 12.2333 2.775 14.125 4.325 15.675C5.875 17.225 7.76667 18 10 18Z" fill="#ADC6FF"/>
+        </svg>
+        <span className="text-base text-gq-text-primary">Tactical Mastery</span>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center">
+        <div className="relative w-full max-w-[200px] mx-auto aspect-square">
+          <svg viewBox="0 0 260 260" fill="none" className="w-full h-full">
+            {/* Grid circles */}
+            <circle cx="130" cy="130" r="117" stroke="#2D2D2D" strokeWidth="1.3"/>
+            <circle cx="130" cy="130" r="78" stroke="#2D2D2D" strokeWidth="1.3"/>
+            <circle cx="130" cy="130" r="39" stroke="#2D2D2D" strokeWidth="1.3"/>
+            {/* Grid lines */}
+            <line x1="130" y1="13" x2="130" y2="247" stroke="#2D2D2D" strokeWidth="1.3"/>
+            <line x1="13" y1="130" x2="247" y2="130" stroke="#2D2D2D" strokeWidth="1.3"/>
+            {/* Radar polygon */}
+            <path
+              d="M130 39L221 130L169 207H91L39 130L130 39Z"
+              fill="#ADC6FF"
+              fillOpacity="0.2"
+              stroke="#ADC6FF"
+              strokeWidth="3.9"
+            />
+          </svg>
+          {/* Labels */}
+          <span className="absolute top-0 left-1/2 -translate-x-1/2 font-mono text-[9px] text-gq-text-secondary">OS</span>
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 font-mono text-[9px] text-gq-text-secondary">Algorithms</span>
+          <span className="absolute bottom-0 right-4 font-mono text-[9px] text-gq-text-secondary">Logic</span>
+          <span className="absolute bottom-0 left-4 font-mono text-[9px] text-gq-text-secondary">Math</span>
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 font-mono text-[9px] text-gq-text-secondary">DS</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Badges() {
+  const badges = [
+    {
+      icon: (
+        <svg width="24" height="39" viewBox="0 0 24 39" fill="none">
+          <path d="M12 24C13.65 24 15.0625 23.4125 16.2375 22.2375C17.4125 21.0625 18 19.65 18 18V12C18 10.35 17.4125 8.9375 16.2375 7.7625C15.0625 6.5875 13.65 6 12 6C10.35 6 8.9375 6.5875 7.7625 7.7625C6.5875 8.9375 6 10.35 6 12V18C6 19.65 6.5875 21.0625 7.7625 22.2375C8.9375 23.4125 10.35 24 12 24ZM9 19.5H15V16.5H9V19.5ZM9 13.5H15V10.5H9V13.5ZM12 27C10.375 27 8.86875 26.6 7.48125 25.8C6.09375 25 5 23.9 4.2 22.5H0V19.5H3.15C3.075 19 3.03125 18.5 3.01875 18C3.00625 17.5 3 17 3 16.5H0V13.5H3C3 13 3.00625 12.5 3.01875 12C3.03125 11.5 3.075 11 3.15 10.5H0V7.5H4.2C4.55 6.925 4.94375 6.3875 5.38125 5.8875C5.81875 5.3875 6.325 4.95 6.9 4.575L4.5 2.1L6.6 0L9.825 3.225C10.525 3 11.2375 2.8875 11.9625 2.8875C12.6875 2.8875 13.4 3 14.1 3.225L17.4 0L19.5 2.1L17.025 4.575C17.6 4.95 18.1187 5.38125 18.5812 5.86875C19.0437 6.35625 19.45 6.9 19.8 7.5H24V10.5H20.85C20.925 11 20.9688 11.5 20.9813 12C20.9938 12.5 21 13 21 13.5H24V16.5H21C21 17 20.9938 17.5 20.9813 18C20.9688 18.5 20.925 19 20.85 19.5H24V22.5H19.8C19 23.9 17.9062 25 16.5187 25.8C15.1312 26.6 13.625 27 12 27Z" fill="#ADC6FF"/>
+        </svg>
+      ),
+      name: "Exterminator",
+      desc: "100+ Debugged\nSessions",
+    },
+    {
+      icon: (
+        <svg width="24" height="42" viewBox="0 0 24 42" fill="none">
+          <path d="M9.825 24.3L17.5875 15H11.5875L12.675 6.4875L5.7375 16.5H10.95L9.825 24.3ZM6 30L7.5 19.5H0L13.5 0H16.5L15 12H24L9 30H6Z" fill="#ADC6FF"/>
+        </svg>
+      ),
+      name: "Overclocked",
+      desc: "Solved 5 Quests\n< 1hr",
+    },
+    {
+      icon: (
+        <svg width="30" height="42" viewBox="0 0 30 42" fill="none">
+          <path d="M15 30C12.925 30 10.975 29.6063 9.15 28.8188C7.325 28.0312 5.7375 26.9625 4.3875 25.6125C3.0375 24.2625 1.96875 22.675 1.18125 20.85C0.39375 19.025 0 17.075 0 15C0 12.925 0.39375 10.975 1.18125 9.15C1.96875 7.325 3.0375 5.7375 4.3875 4.3875C5.7375 3.0375 7.325 1.96875 9.15 1.18125C10.975 0.39375 12.925 0 15 0C17.075 0 19.025 0.39375 20.85 1.18125C22.675 1.96875 24.2625 3.0375 25.6125 4.3875C26.9625 5.7375 28.0312 7.325 28.8188 9.15C29.6063 10.975 30 12.925 30 15C30 17.075 29.6063 19.025 28.8188 20.85C28.0312 22.675 26.9625 24.2625 25.6125 25.6125C24.2625 26.9625 22.675 28.0312 20.85 28.8188C19.025 29.6063 17.075 30 15 30ZM15 27C18.35 27 21.1875 25.8375 23.5125 23.5125C25.8375 21.1875 27 18.35 27 15C27 11.65 25.8375 8.8125 23.5125 6.4875C21.1875 4.1625 18.35 3 15 3C11.65 3 8.8125 4.1625 6.4875 6.4875C4.1625 8.8125 3 11.65 3 15C3 18.35 4.1625 21.1875 6.4875 23.5125C8.8125 25.8375 11.65 27 15 27Z" fill="#ADC6FF"/>
+      </svg>
+    ),
+      name: "Syntax\nSniper",
+      desc: "First-try\nAcceptances",
+    },
+    {
+      icon: (
+        <svg width="27" height="39" viewBox="0 0 27 39" fill="none">
+          <path d="M9 18V9H18V18H9ZM12 15H15V12H12V15ZM9 27V24H6C5.175 24 4.46875 23.7062 3.88125 23.1187C3.29375 22.5312 3 21.825 3 21V18H0V15H3V12H0V9H3V6C3 5.175 3.29375 4.46875 3.88125 3.88125C4.46875 3.29375 5.175 3 6 3H9V0H12V3H15V0H18V3H21C21.825 3 22.5312 3.29375 23.1187 3.88125C23.7062 4.46875 24 5.175 24 6V9H27V12H24V15H27V18H24V21C24 21.825 23.7062 22.5312 23.1187 23.1187C22.5312 23.7062 21.825 24 21 24H18V27H15V24H12V27H9ZM21 21V6H6V21H21Z" fill="#ADC6FF"/>
+        </svg>
+      ),
+      name: "Core\nMaster",
+      desc: "OS Concept\nCompletion",
+    },
+  ];
+
+  const LockIcon = () => (
+    <svg width="20" height="27" viewBox="0 0 20 27" fill="none">
+      <path d="M2.5 26.25C1.8125 26.25 1.22396 26.0052 0.734375 25.5156C0.244792 25.026 0 24.4375 0 23.75V11.25C0 10.5625 0.244792 9.97396 0.734375 9.48438C1.22396 8.99479 1.8125 8.75 2.5 8.75H3.75V6.25C3.75 4.52083 4.35938 3.04688 5.57812 1.82812C6.79688 0.609375 8.27083 0 10 0C11.7292 0 13.2031 0.609375 14.4219 1.82812C15.6406 3.04688 16.25 4.52083 16.25 6.25V8.75H17.5C18.1875 8.75 18.776 8.99479 19.2656 9.48438C19.7552 9.97396 20 10.5625 20 11.25V23.75C20 24.4375 19.7552 25.026 19.2656 25.5156C18.776 26.0052 18.1875 26.25 17.5 26.25H2.5ZM2.5 23.75H17.5V11.25H2.5V23.75ZM10 20C10.6875 20 11.276 19.7552 11.7656 19.2656C12.2552 18.776 12.5 18.1875 12.5 17.5C12.5 16.8125 12.2552 16.224 11.7656 15.7344C11.276 15.2448 10.6875 15 10 15C9.3125 15 8.72396 15.2448 8.23438 15.7344C7.74479 16.224 7.5 16.8125 7.5 17.5C7.5 18.1875 7.74479 18.776 8.23438 19.2656C8.72396 19.7552 9.3125 20 10 20ZM6.25 8.75H13.75V6.25C13.75 5.20833 13.3854 4.32292 12.6562 3.59375C11.9271 2.86458 11.0417 2.5 10 2.5C8.95833 2.5 8.07292 2.86458 7.34375 3.59375C6.61458 4.32292 6.25 5.20833 6.25 6.25V8.75Z" fill="#E5E2E1"/>
+    </svg>
+  );
+
+  return (
+    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
+        <svg width="10" height="20" viewBox="0 0 10 20" fill="none">
+          <path d="M0 0H10V7.85C10 8.23333 9.91667 8.575 9.75 8.875C9.58333 9.175 9.35 9.41667 9.05 9.6L5.5 11.7L6.2 14H10L6.9 16.2L8.1 20L5 17.65L1.9 20L3.1 16.2L0 14H3.8L4.5 11.7L0.95 9.6C0.65 9.41667 0.416667 9.175 0.25 8.875C0.0833333 8.575 0 8.23333 0 7.85V0ZM2 2V7.85L4 9.05V2H2ZM8 2H6V9.05L8 7.85V2Z" fill="#ADC6FF"/>
+        </svg>
+        <span className="text-base text-gq-text-primary">Badges</span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {badges.map((badge, i) => (
+          <div
+            key={i}
+            className="flex flex-col items-center gap-1 p-4 rounded-[4px] border border-gq-accent bg-[rgba(53,53,52,0.30)]"
+          >
+            <div className="mb-2">{badge.icon}</div>
+            <span className="font-mono font-bold text-[14px] text-gq-text-primary text-center whitespace-pre-line leading-tight">
+              {badge.name}
+            </span>
+            <span className="text-[10px] text-gq-text-secondary text-center whitespace-pre-line leading-snug mt-1">
+              {badge.desc}
+            </span>
+          </div>
+        ))}
+
+        {/* Empty slots */}
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={`empty-${i}`}
+            className="flex items-center justify-center h-28 rounded-[4px] border border-dashed border-gq-accent/30 opacity-30"
+          >
+            <LockIcon />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function UplinkFeed() {
+  const activities = [
+    {
+      color: "#ADC6FF",
+      title: "Solved Dijkstra's Shortest Path",
+      section: "ALGORITHMS_SEC_4",
+      value: "+45XP",
+      valueColor: "#ADC6FF",
+      time: "2 HOURS AGO",
+    },
+    {
+      color: "#C0C1FF",
+      title: "Earned Binary Search Badge",
+      section: "COLLECTION_UPDATED",
+      value: "UNLOCK",
+      valueColor: "#C0C1FF",
+      time: "5 HOURS AGO",
+    },
+    {
+      color: "#ADC6FF",
+      title: 'Completed "Virtual Memory" Module',
+      section: "OPERATING_SYSTEMS",
+      value: "+120XP",
+      valueColor: "#ADC6FF",
+      time: "1 DAY AGO",
+    },
+    {
+      color: "#FFB4AB",
+      title: "Defeated in Arena Challenge #12",
+      section: "PVP_INSTANCE",
+      value: "-10XP",
+      valueColor: "#FFB4AB",
+      time: "1 DAY AGO",
+    },
+  ];
+
+  return (
+    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 18C6.7 18 4.69583 17.2375 2.9875 15.7125C1.27917 14.1875 0.3 12.2833 0.05 10H2.1C2.33333 11.7333 3.10417 13.1667 4.4125 14.3C5.72083 15.4333 7.25 16 9 16C10.95 16 12.6042 15.3208 13.9625 13.9625C15.3208 12.6042 16 10.95 16 9C16 7.05 15.3208 5.39583 13.9625 4.0375C12.6042 2.67917 10.95 2 9 2C7.85 2 6.775 2.26667 5.775 2.8C4.775 3.33333 3.93333 4.06667 3.25 5H6V7H0V1H2V3.35C2.85 2.28333 3.8875 1.45833 5.1125 0.875C6.3375 0.291667 7.63333 0 9 0C10.25 0 11.4208 0.2375 12.5125 0.7125C13.6042 1.1875 14.5542 1.82917 15.3625 2.6375C16.1708 3.44583 16.8125 4.39583 17.2875 5.4875C17.7625 6.57917 18 7.75 18 9C18 10.25 17.7625 11.4208 17.2875 12.5125C16.8125 13.6042 16.1708 14.5542 15.3625 15.3625C14.5542 16.1708 13.6042 16.8125 12.5125 17.2875C11.4208 17.7625 10.25 18 9 18ZM11.8 13.2L8 9.4V4H10V8.6L13.2 11.8L11.8 13.2Z" fill="#ADC6FF"/>
+        </svg>
+        <span className="text-base text-gq-text-primary">Uplink Feed</span>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {activities.map((a, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between py-3 px-3 border-b border-[rgba(66,71,84,0.30)] last:border-b-0"
+          >
+            <div className="flex items-center gap-4 min-w-0">
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: a.color }}
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm text-gq-text-primary truncate">{a.title}</span>
+                <span className="font-mono text-xs text-gq-text-secondary tracking-tight uppercase mt-0.5">
+                  {a.section}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end flex-shrink-0 ml-4 gap-0.5">
+              <span className="font-mono text-sm font-bold" style={{ color: a.valueColor }}>
+                {a.value}
+              </span>
+              <span className="text-[10px] text-gq-text-secondary">{a.time}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button className="w-full py-3 rounded-[2px] bg-[rgba(53,53,52,0.50)] text-sm font-bold tracking-widest uppercase text-gq-text-primary hover:bg-[rgba(53,53,52,0.80)] transition-colors">
+        SYNCHRONIZE FULL LOGS
+      </button>
+    </section>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ProfilePage() {
+  return (
+    <Layout>
+      <div className="p-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
+        {/* User identity header */}
+        <UserHeader />
+
+        {/* Row 1: Activity Map + Subject Proficiency */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8">
+            <ActivityMap />
+          </div>
+          <div className="lg:col-span-4">
+            <SubjectProficiency />
+          </div>
+        </div>
+
+        {/* Row 2: Tactical Mastery + Badges */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4">
+            <TacticalMastery />
+          </div>
+          <div className="lg:col-span-8">
+            <Badges />
+          </div>
+        </div>
+
+        {/* Row 3: Uplink Feed */}
+        <UplinkFeed />
+      </div>
+    </Layout>
+  );
+}
