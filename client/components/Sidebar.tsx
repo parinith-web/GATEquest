@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
   {
@@ -81,6 +82,14 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    onClose?.();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <>
@@ -176,6 +185,18 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               <span className="text-[17px] leading-[26px]">{item.label}</span>
             </Link>
           ))}
+
+          {user && (
+            <div className="flex items-center justify-between gap-2 mt-2 pt-3 border-t border-gq-border">
+              <span className="text-gq-text-muted text-[13px] truncate">{user.email}</span>
+              <button
+                onClick={handleLogout}
+                className="text-gq-text-secondary text-[13px] font-medium hover:text-white transition-colors shrink-0"
+              >
+                Log out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

@@ -1,0 +1,4 @@
+.env
+*.db
+gatequest-auth
+/tmp
