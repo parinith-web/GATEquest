@@ -25,19 +25,9 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./client/*"],
-      "@shared/*": ["./shared/*"]
+      "@/*": ["./client/*"]
     }
   },
-  "include": [
-    "client/**/*",
-    "server/**/*",
-    "shared/**/*",
-    "drizzle/**/*",
-    "scripts/**/*.ts",
-    "drizzle.config.ts",
-    "vite.config.ts",
-    "vite.config.server.ts"
-  ],
+  "include": ["client/**/*", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

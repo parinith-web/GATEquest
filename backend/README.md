@@ -14,10 +14,25 @@ dev server for auth purposes.
   Registration creates a new user + credential; login is **usernameless**
   (discoverable credentials) — the user just taps their platform
   authenticator, no username typed.
-- **Sessions** — opaque random tokens in an httpOnly, SameSite=Lax cookie,
-  stored server-side (not JWTs), so logout instantly revokes them.
+- **Sessions** — opaque random tokens in an httpOnly cookie, stored
+  server-side (not JWTs), so logout instantly revokes them. `SameSite` is
+  `Lax` for local dev and `None` (with `Secure`) once `COOKIE_SECURE=true`,
+  since the frontend (Vercel) and this backend live on different domains
+  in production.
 - Accounts are matched by email, so a user who registers a passkey and
   later signs in with Google using the same address gets the same account.
+
+## Deploying
+
+This is a normal long-running Go server — deploy it anywhere that runs a
+process and exposes a port (Render, Fly.io, a plain VPS, etc.), **not**
+Vercel/Netlify serverless functions (the in-memory store below needs a
+single persistent process). Point your platform at `go run .` /
+`go build && ./gatequest-auth`, set the environment variables from
+`.env.example` for real (`COOKIE_SECURE=true`, `FRONTEND_URL` and
+`RP_ORIGINS` set to your actual Vercel URL, `RP_ID` to its bare domain),
+and make sure it's served over HTTPS — required for `Secure` cookies and
+for WebAuthn outside of `localhost`.
 
 ## What's intentionally left for you
 

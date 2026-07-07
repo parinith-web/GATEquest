@@ -32,13 +32,26 @@ func NewManager(s *store.Store, cfg *config.Config) *Manager {
 }
 
 func (m *Manager) baseCookie(name, value string, maxAge int) *http.Cookie {
+	// The frontend (Vercel) and this backend live on different domains in
+	// production, so the session/ceremony cookies are cross-site from the
+	// browser's point of view. Cross-site cookies require SameSite=None,
+	// which in turn requires Secure=true (browsers reject SameSite=None
+	// without Secure). Locally, both run on http://localhost on different
+	// ports, which browsers also treat as cross-site for cookie purposes —
+	// but SameSite=None without HTTPS is rejected there too, so we fall
+	// back to Lax for local dev (works because Vite's dev proxy makes
+	// requests look same-origin to the browser).
+	sameSite := http.SameSiteLaxMode
+	if m.Cfg.CookieSecure {
+		sameSite = http.SameSiteNoneMode
+	}
 	return &http.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   m.Cfg.CookieSecure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 		Domain:   m.Cfg.CookieDomain,
 		MaxAge:   maxAge,
 	}

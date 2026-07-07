@@ -12,7 +12,7 @@ export interface AuthUser {
   hasGoogle: boolean;
 }
 
-const API_BASE = "/api/auth";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/auth`;
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
