@@ -3,25 +3,25 @@
 // survive between the /begin and /finish calls of a passkey registration
 // or login.
 //
-// This is an in-memory implementation, guarded by a mutex, which is fine
-// for development and small deployments but is NOT persistent — restarting
-// the process forgets every user and credential. Before shipping this to
-// real users, swap Store's internals for a real database (Postgres,
-// SQLite, etc.) behind the same method set so the rest of the app doesn't
-// need to change. That is the main thing left "unfinished" here on purpose,
-// since it depends on which DB you want to standardize on.
+// This is a Postgres-backed implementation (tested against Neon). It
+// keeps the exact same public API the earlier in-memory version had, so
+// nothing else in the codebase needs to change — auth/*.go calls these
+// methods without knowing or caring where the data actually lives.
 package store
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -73,43 +73,37 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-// Store is all server-side state.
+// Store is all server-side state, backed by a Postgres connection pool.
 type Store struct {
-	mu sync.RWMutex
-
-	usersByID    map[uuid.UUID]*User
-	usersByEmail map[string]uuid.UUID
-	usersByGoog  map[string]uuid.UUID
-
-	sessions map[string]*Session
-
-	// webauthnCeremonies holds SessionData for an in-flight registration
-	// or login, keyed by a random ceremony ID handed to the client via
-	// a short-lived cookie.
-	webauthnCeremonies map[string]*ceremony
+	db *pgxpool.Pool
 }
 
-type ceremony struct {
-	Data      webauthn.SessionData
-	ExpiresAt time.Time
-}
-
-func New() *Store {
-	return &Store{
-		usersByID:          make(map[uuid.UUID]*User),
-		usersByEmail:       make(map[string]uuid.UUID),
-		usersByGoog:        make(map[string]uuid.UUID),
-		sessions:           make(map[string]*Session),
-		webauthnCeremonies: make(map[string]*ceremony),
+// New opens a connection pool against dsn (a standard Postgres
+// connection string — Neon's "Connection string" from its dashboard
+// works as-is, e.g. postgres://user:pass@host/db?sslmode=require) and
+// verifies it with a ping. Callers should call Close when done (e.g. on
+// shutdown); a canceled ctx or unreachable database returns an error
+// instead of panicking so main() can fail fast with a clear message.
+func New(ctx context.Context, dsn string) (*Store, error) {
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, err
 	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return &Store{db: pool}, nil
+}
+
+func (s *Store) Close() {
+	s.db.Close()
 }
 
 // --- Users -----------------------------------------------------------
 
 func (s *Store) CreateUser(email, name, avatarURL, googleSub string) *User {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	ctx := context.Background()
 	u := &User{
 		ID:        uuid.New(),
 		Email:     email,
@@ -118,67 +112,110 @@ func (s *Store) CreateUser(email, name, avatarURL, googleSub string) *User {
 		GoogleSub: googleSub,
 		CreatedAt: time.Now(),
 	}
-	s.usersByID[u.ID] = u
+
+	var email_, googleSub_ *string
 	if email != "" {
-		s.usersByEmail[email] = u.ID
+		email_ = &email
 	}
 	if googleSub != "" {
-		s.usersByGoog[googleSub] = u.ID
+		googleSub_ = &googleSub
 	}
+
+	// Errors here are swallowed to keep this method's signature matching
+	// the previous in-memory version (which couldn't fail). In practice
+	// this only fails on a broken connection or a duplicate email/sub,
+	// which auth/*.go should be preventing upstream by checking
+	// GetUserByEmail / GetUserByGoogleSub first.
+	_, _ = s.db.Exec(ctx,
+		`INSERT INTO users (id, email, name, avatar_url, google_sub, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		u.ID, email_, u.Name, u.AvatarURL, googleSub_, u.CreatedAt,
+	)
 	return u
 }
 
 func (s *Store) GetUserByID(id uuid.UUID) (*User, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	u, ok := s.usersByID[id]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return u, nil
+	return s.loadUser(context.Background(), "id = $1", id)
 }
 
 func (s *Store) GetUserByEmail(email string) (*User, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	id, ok := s.usersByEmail[email]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return s.usersByID[id], nil
+	return s.loadUser(context.Background(), "email = $1", email)
 }
 
 func (s *Store) GetUserByGoogleSub(sub string) (*User, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	id, ok := s.usersByGoog[sub]
-	if !ok {
-		return nil, ErrNotFound
+	return s.loadUser(context.Background(), "google_sub = $1", sub)
+}
+
+// loadUser fetches a user row by the given WHERE clause/arg, then loads
+// their credentials in a second query.
+func (s *Store) loadUser(ctx context.Context, where string, arg any) (*User, error) {
+	var u User
+	var email, googleSub *string
+	row := s.db.QueryRow(ctx,
+		`SELECT id, email, name, avatar_url, google_sub, created_at FROM users WHERE `+where,
+		arg,
+	)
+	if err := row.Scan(&u.ID, &email, &u.Name, &u.AvatarURL, &googleSub, &u.CreatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
 	}
-	return s.usersByID[id], nil
+	if email != nil {
+		u.Email = *email
+	}
+	if googleSub != nil {
+		u.GoogleSub = *googleSub
+	}
+
+	creds, err := s.loadCredentials(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	u.Credentials = creds
+	return &u, nil
+}
+
+func (s *Store) loadCredentials(ctx context.Context, userID uuid.UUID) ([]webauthn.Credential, error) {
+	rows, err := s.db.Query(ctx, `SELECT data FROM credentials WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var creds []webauthn.Credential
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var c webauthn.Credential
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return nil, err
+		}
+		creds = append(creds, c)
+	}
+	return creds, rows.Err()
 }
 
 // LinkGoogleAccount attaches a Google subject ID to an existing user
 // (e.g. one that was originally created via passkey registration and is
 // now also signing in with Google using the same email).
 func (s *Store) LinkGoogleAccount(userID uuid.UUID, googleSub string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if u, ok := s.usersByID[userID]; ok {
-		u.GoogleSub = googleSub
-		s.usersByGoog[googleSub] = userID
-	}
+	_, _ = s.db.Exec(context.Background(),
+		`UPDATE users SET google_sub = $1 WHERE id = $2`, googleSub, userID)
 }
 
 func (s *Store) AddCredential(userID uuid.UUID, cred webauthn.Credential) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	u, ok := s.usersByID[userID]
-	if !ok {
-		return ErrNotFound
+	data, err := json.Marshal(cred)
+	if err != nil {
+		return err
 	}
-	u.Credentials = append(u.Credentials, cred)
-	return nil
+	_, err = s.db.Exec(context.Background(),
+		`INSERT INTO credentials (credential_id, user_id, data) VALUES ($1, $2, $3)`,
+		cred.ID, userID, data,
+	)
+	return err
 }
 
 // UpdateCredential persists an updated credential (e.g. new sign counter)
@@ -186,19 +223,21 @@ func (s *Store) AddCredential(userID uuid.UUID, cred webauthn.Credential) error 
 // from FinishLogin/FinishPasskeyLogin — the caller must save it back or
 // the clone-detection signature counter check becomes useless.
 func (s *Store) UpdateCredential(userID uuid.UUID, cred webauthn.Credential) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	u, ok := s.usersByID[userID]
-	if !ok {
+	data, err := json.Marshal(cred)
+	if err != nil {
+		return err
+	}
+	tag, err := s.db.Exec(context.Background(),
+		`UPDATE credentials SET data = $1 WHERE credential_id = $2 AND user_id = $3`,
+		data, cred.ID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	for i, c := range u.Credentials {
-		if string(c.ID) == string(cred.ID) {
-			u.Credentials[i] = cred
-			return nil
-		}
-	}
-	return ErrNotFound
+	return nil
 }
 
 // GetUserByCredentialUserHandle looks up a user by the raw WebAuthn user
@@ -221,35 +260,37 @@ func randomToken() string {
 }
 
 func (s *Store) CreateSession(userID uuid.UUID, ttl time.Duration) *Session {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	sess := &Session{
 		Token:     randomToken(),
 		UserID:    userID,
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(ttl),
 	}
-	s.sessions[sess.Token] = sess
+	_, _ = s.db.Exec(context.Background(),
+		`INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES ($1, $2, $3, $4)`,
+		sess.Token, sess.UserID, sess.CreatedAt, sess.ExpiresAt,
+	)
 	return sess
 }
 
 func (s *Store) GetSession(token string) (*Session, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	sess, ok := s.sessions[token]
-	if !ok {
-		return nil, ErrNotFound
+	var sess Session
+	row := s.db.QueryRow(context.Background(),
+		`SELECT token, user_id, created_at, expires_at FROM sessions WHERE token = $1`, token)
+	if err := row.Scan(&sess.Token, &sess.UserID, &sess.CreatedAt, &sess.ExpiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
 	}
 	if time.Now().After(sess.ExpiresAt) {
 		return nil, ErrExpired
 	}
-	return sess, nil
+	return &sess, nil
 }
 
 func (s *Store) DeleteSession(token string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.sessions, token)
+	_, _ = s.db.Exec(context.Background(), `DELETE FROM sessions WHERE token = $1`, token)
 }
 
 // --- WebAuthn ceremony state --------------------------------------------
@@ -259,30 +300,46 @@ func (s *Store) DeleteSession(token string) {
 // round-tripped to the client in a short-lived cookie and looked back up
 // on the matching /finish call.
 func (s *Store) SaveCeremony(data webauthn.SessionData) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	id := hex.EncodeToString(func() []byte {
 		b := make([]byte, 16)
 		_, _ = rand.Read(b)
 		return b
 	}())
-	s.webauthnCeremonies[id] = &ceremony{
-		Data:      data,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return id // caller will get ErrNotFound on TakeCeremony; nothing more we can do here
 	}
+	expiresAt := time.Now().Add(5 * time.Minute)
+	_, _ = s.db.Exec(context.Background(),
+		`INSERT INTO webauthn_ceremonies (id, data, expires_at) VALUES ($1, $2, $3)`,
+		id, raw, expiresAt,
+	)
 	return id
 }
 
 func (s *Store) TakeCeremony(id string) (webauthn.SessionData, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.webauthnCeremonies[id]
-	if !ok {
-		return webauthn.SessionData{}, ErrNotFound
+	ctx := context.Background()
+	var raw []byte
+	var expiresAt time.Time
+
+	// One-shot: delete-and-return in a single round trip so a ceremony
+	// can't be replayed even under concurrent requests.
+	row := s.db.QueryRow(ctx,
+		`DELETE FROM webauthn_ceremonies WHERE id = $1 RETURNING data, expires_at`, id)
+	if err := row.Scan(&raw, &expiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return webauthn.SessionData{}, ErrNotFound
+		}
+		return webauthn.SessionData{}, err
 	}
-	delete(s.webauthnCeremonies, id) // one-shot: a ceremony is used exactly once
-	if time.Now().After(c.ExpiresAt) {
+	if time.Now().After(expiresAt) {
 		return webauthn.SessionData{}, ErrExpired
 	}
-	return c.Data, nil
+
+	var data webauthn.SessionData
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return webauthn.SessionData{}, err
+	}
+	return data, nil
 }

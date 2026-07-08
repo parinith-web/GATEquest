@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"gatequest-auth/internal/auth"
 	"gatequest-auth/internal/config"
@@ -54,7 +56,19 @@ func main() {
 	}
 	log.Printf("config: %s", cfg)
 
-	st := store.New()
+	if cfg.DatabaseURL == "" {
+		log.Fatal("DATABASE_URL is not set — see .env.example for the Neon connection string to use")
+	}
+
+	connectCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	st, err := store.New(connectCtx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer st.Close()
+	log.Print("connected to database")
+
 	mgr := auth.NewManager(st, cfg)
 
 	waHandlers, err := auth.NewWebAuthnHandlers(mgr)

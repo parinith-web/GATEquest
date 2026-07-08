@@ -12,6 +12,10 @@ import (
 type Config struct {
 	Port string
 
+	// DatabaseURL is the Postgres connection string (e.g. from Neon's
+	// dashboard: postgres://user:pass@host/db?sslmode=require).
+	DatabaseURL string
+
 	// FrontendURL is where the React app is served from. Used for
 	// CORS and for redirecting back after Google OAuth completes.
 	FrontendURL string
@@ -58,6 +62,7 @@ func Load() (*Config, []string) {
 
 	cfg := &Config{
 		Port:          mustEnv(&missing, "PORT", "8081"),
+		DatabaseURL:   mustEnv(&missing, "DATABASE_URL", ""),
 		FrontendURL:   mustEnv(&missing, "FRONTEND_URL", "http://localhost:8080"),
 		SessionSecret: mustEnv(&missing, "SESSION_SECRET", ""),
 		CookieDomain:  os.Getenv("COOKIE_DOMAIN"),
