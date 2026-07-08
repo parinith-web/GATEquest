@@ -21,6 +21,17 @@ const branches: Branch[] = [
     ),
   },
   {
+    id: "da",
+    label: "Data Science & AI",
+    code: "DA",
+    icon: (
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 0L18.5 8.5L27 12L18.5 15.5L15 24L11.5 15.5L3 12L11.5 8.5L15 0Z" fill="currentColor"/>
+        <circle cx="24" cy="24" r="4.5" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     id: "ece",
     label: "Electronics",
     code: "ECE",

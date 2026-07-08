@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
+import {
+  getBranch,
+  isWiredBranch,
+  BRANCH_SUBJECT,
+  BRANCH_LABEL,
+  BRANCH_TOPIC_ORDER,
+  fetchTopics,
+  type WiredBranch,
+} from "@/lib/gate-api";
 
 // ─── Activity Streak ─────────────────────────────────────────────────────────
 
@@ -145,7 +154,7 @@ function isoPos(col: number, row: number) {
   };
 }
 
-const SubjectCard = ({ subject }: { subject: Subject }) => {
+const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subject) => void }) => {
   const { name, topics, progress, status, highlighted, size, gridPos } = subject;
   const isLocked = status === "locked";
   const isCompleted = status === "completed";
@@ -183,7 +192,7 @@ const SubjectCard = ({ subject }: { subject: Subject }) => {
       <div
         onClick={() => {
           if (!isLocked) {
-            navigate("/problems");
+            onOpen ? onOpen(subject) : navigate("/problems");
           }
         }}
         className={cn(
@@ -285,17 +294,23 @@ const SubjectCard = ({ subject }: { subject: Subject }) => {
 
 // ─── Roadmap Grid (desktop) ───────────────────────────────────────────────────
 
-const IsometricRoadmap = () => (
+const IsometricRoadmap = ({
+  subjects,
+  onOpen,
+}: {
+  subjects: Subject[];
+  onOpen?: (s: Subject) => void;
+}) => (
   <div className="relative w-full overflow-x-auto min-w-[1100px]" style={{ height: 620 }}>
-    {SUBJECTS.map((subject) => (
-      <SubjectCard key={subject.id} subject={subject} />
+    {subjects.map((subject) => (
+      <SubjectCard key={subject.id} subject={subject} onOpen={onOpen} />
     ))}
   </div>
 );
 
 // ─── Mobile subject list ──────────────────────────────────────────────────────
 
-const MobileSubjectCard = ({ subject }: { subject: Subject }) => {
+const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subject) => void }) => {
   const { name, topics, progress, status, highlighted } = subject;
   const isLocked = status === "locked";
   const isCompleted = status === "completed";
@@ -306,7 +321,7 @@ const MobileSubjectCard = ({ subject }: { subject: Subject }) => {
     <div
       onClick={() => {
         if (!isLocked) {
-          navigate("/problems");
+          onOpen ? onOpen(subject) : navigate("/problems");
         }
       }}
       className={cn(
@@ -364,9 +379,83 @@ const MobileSubjectCard = ({ subject }: { subject: Subject }) => {
   );
 };
 
+// ─── Live roadmap (CS / DA) ────────────────────────────────────────────────
+//
+// Unlike SUBJECTS above (hand-placed mock grid coordinates), a live topic
+// list has a variable length that comes from the DB, so positions are
+// generated with a simple wave pattern instead of being hand-authored.
+// This keeps the same isometric-card visual language for real topics.
+
+function generateGridPositions(n: number): { col: number; row: number }[] {
+  const positions: { col: number; row: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    positions.push({
+      col: 1.5 + i * 1.15,
+      row: 2.6 + Math.sin(i * 1.05) * 1.35,
+    });
+  }
+  return positions;
+}
+
+const LIVE_CARD_SIZES: CardSize[] = ["md", "lg", "sm"];
+
+function useLiveTopics(branch: WiredBranch | null) {
+  const [subjects, setSubjects] = useState<Subject[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!branch) return;
+    let cancelled = false;
+
+    fetchTopics(BRANCH_SUBJECT[branch])
+      .then((counts) => {
+        if (cancelled) return;
+        const countByTopic = new Map(counts.map((c) => [c.Topic, c.Count]));
+        const order = BRANCH_TOPIC_ORDER[branch];
+        const positions = generateGridPositions(order.length);
+
+        const built: Subject[] = order.map((topic, i) => ({
+          id: topic,
+          name: topic,
+          topics: countByTopic.get(topic) ?? 0,
+          status: "active",
+          gridPos: positions[i],
+          size: LIVE_CARD_SIZES[i % LIVE_CARD_SIZES.length],
+        }));
+        setSubjects(built);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message ?? "Failed to load topics");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [branch]);
+
+  return { subjects, error };
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RoadmapsPage() {
+  const navigate = useNavigate();
+  const branch = getBranch();
+  const wired = isWiredBranch(branch) ? branch : null;
+  const { subjects: liveSubjects, error: liveError } = useLiveTopics(wired);
+
+  const openTopic = (subject: Subject) => {
+    navigate(`/problems?topic=${encodeURIComponent(subject.name)}`);
+  };
+
+  // Non-wired branches (ECE, EE, CE, ME, Other) keep the exact original
+  // mockup below, unchanged.
+  const subjects = wired ? liveSubjects : SUBJECTS;
+  const pathwayTitle = wired ? `${BRANCH_LABEL[wired]} Pathway` : "CS Pathway";
+  const pathwayBody = wired
+    ? `Master the ${BRANCH_LABEL[wired]} syllabus, topic by topic, using real GATE questions from your imported question bank.`
+    : "Master the syllabus node by node. Track your progress across core engineering domains.";
+
   return (
     <Layout>
       <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 py-8">
@@ -393,34 +482,48 @@ export default function RoadmapsPage() {
 
         {/* ── Top info row ── */}
         <div className="relative z-10 flex flex-col xl:flex-row justify-between items-start gap-4 mb-8">
-          {/* CS Pathway card */}
+          {/* Pathway card */}
           <div className="rounded-2xl border border-white/[0.09] bg-white/[0.04] backdrop-blur-sm p-6 max-w-[340px]">
             <h1 className="text-[22px] font-bold text-white mb-2 leading-snug">
-              CS Pathway
+              {pathwayTitle}
             </h1>
-            <p className="text-zinc-400 text-sm leading-relaxed">
-              Master the syllabus node by node. Track your progress across core
-              engineering domains.
-            </p>
+            <p className="text-zinc-400 text-sm leading-relaxed">{pathwayBody}</p>
           </div>
 
           {/* Activity streak */}
           <ActivityStreak />
         </div>
 
-        {/* ── Isometric roadmap (desktop) ── */}
-        <div className="hidden md:block relative z-10 pb-8 overflow-x-auto">
-          <IsometricRoadmap />
-        </div>
-
-        {/* ── Mobile card list ── */}
-        <div className="md:hidden relative z-10 pb-8">
-          <div className="flex flex-col gap-3">
-            {SUBJECTS.map((subject) => (
-              <MobileSubjectCard key={subject.id} subject={subject} />
-            ))}
+        {wired && !subjects && !liveError && (
+          <div className="relative z-10 text-zinc-500 text-sm py-8">Loading topics…</div>
+        )}
+        {wired && liveError && (
+          <div className="relative z-10 text-red-400 text-sm py-8">
+            Couldn't load topics: {liveError}
           </div>
-        </div>
+        )}
+
+        {subjects && (
+          <>
+            {/* ── Isometric roadmap (desktop) ── */}
+            <div className="hidden md:block relative z-10 pb-8 overflow-x-auto">
+              <IsometricRoadmap subjects={subjects} onOpen={wired ? openTopic : undefined} />
+            </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden relative z-10 pb-8">
+              <div className="flex flex-col gap-3">
+                {subjects.map((subject) => (
+                  <MobileSubjectCard
+                    key={subject.id}
+                    subject={subject}
+                    onOpen={wired ? openTopic : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );

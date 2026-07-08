@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"gatequest-auth/internal/api"
 	"gatequest-auth/internal/auth"
 	"gatequest-auth/internal/config"
 	"gatequest-auth/internal/store"
@@ -70,6 +71,7 @@ func main() {
 	log.Print("connected to database")
 
 	mgr := auth.NewManager(st, cfg)
+	apiHandlers := api.New(st)
 
 	waHandlers, err := auth.NewWebAuthnHandlers(mgr)
 	if err != nil {
@@ -106,6 +108,14 @@ func main() {
 			w.Write([]byte(`{"message":"pong","email":"` + u.Email + `"}`))
 		})
 	})
+
+	// Question bank: public read-only endpoints, no auth required for
+	// browsing. Wrap in the RequireAuth group above instead if you want
+	// to gate the question bank behind login.
+	r.Get("/api/subjects", apiHandlers.Subjects)
+	r.Get("/api/topics", apiHandlers.Topics)
+	r.Get("/api/questions", apiHandlers.ListQuestions)
+	r.Get("/api/questions/{id}", apiHandlers.GetQuestion)
 
 	addr := ":" + cfg.Port
 	log.Printf("listening on %s", addr)

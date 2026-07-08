@@ -1,6 +1,16 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
+import {
+  getBranch,
+  isWiredBranch,
+  BRANCH_SUBJECT,
+  BRANCH_LABEL,
+  fetchTopics,
+  fetchQuestions,
+  type TopicCount,
+  type QuestionListItem,
+} from "@/lib/gate-api";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -527,9 +537,388 @@ function Pagination() {
   );
 }
 
+// ─── Live versions (CS / DA, real data from Neon) ─────────────────────────
+//
+// These mirror the static components above but read real topics/questions
+// from the API. Non-wired branches never render these — they keep using
+// the original mock components untouched.
+
+function LiveProgressWidget({
+  subjectLabel,
+  topic,
+  questions,
+}: {
+  subjectLabel: string;
+  topic: string | null;
+  questions: QuestionListItem[];
+}) {
+  const total = questions.length;
+  const r = 44;
+  const circ = 2 * Math.PI * r;
+
+  const byDifficulty = useMemo(() => {
+    const counts: Record<string, number> = { Easy: 0, Medium: 0, Hard: 0 };
+    for (const q of questions) {
+      const d = q.difficulty ?? "Medium";
+      counts[d] = (counts[d] ?? 0) + 1;
+    }
+    return counts;
+  }, [questions]);
+
+  const bars = [
+    { label: "Easy", count: byDifficulty.Easy ?? 0, color: "#ADC6FF" },
+    { label: "Medium", count: byDifficulty.Medium ?? 0, color: "#EAB308" },
+    { label: "Hard", count: byDifficulty.Hard ?? 0, color: "#FFB4AB" },
+  ];
+  const maxCount = Math.max(1, ...bars.map((b) => b.count));
+
+  return (
+    <div className="rounded-lg border border-gq-border bg-gq-card p-6 flex flex-col gap-1 backdrop-blur-sm">
+      <div className="flex items-center justify-between">
+        <div className="w-10 h-10 rounded-[4px] bg-[rgba(77,142,255,0.20)] flex items-center justify-center">
+          <IconNetwork />
+        </div>
+      </div>
+
+      <div className="pt-3">
+        <h3 className="text-gq-text text-[26px] font-semibold leading-[1.25] tracking-[-0.32px]">
+          {topic ?? "All Topics"}
+        </h3>
+      </div>
+      <p className="text-gq-muted text-sm">GATE Prep · {subjectLabel}</p>
+
+      <div className="flex justify-center pt-5">
+        <div className="relative w-[110px] h-[106px]">
+          <svg viewBox="0 0 110 106" width="110" height="106">
+            <ellipse cx="55" cy="53" rx="54" ry="53" fill="transparent" />
+            <circle cx="55" cy="53" r={r} fill="transparent" stroke="#2A2A2A" strokeWidth="7" />
+            <circle
+              cx="55"
+              cy="53"
+              r={r}
+              fill="transparent"
+              stroke="#ADC6FF"
+              strokeWidth="7"
+              strokeDasharray={`${circ} ${0}`}
+              strokeLinecap="round"
+              transform="rotate(-90 55 53)"
+              style={{ transformOrigin: "55px 53px" }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-gq-text text-[32px] font-semibold leading-[1.25] tracking-[-0.32px]">
+              {total}
+            </span>
+            <span className="text-gq-muted text-[12px] font-semibold tracking-[0.6px] text-center px-2">
+              Questions
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 pt-7">
+        {bars.map(({ label, count, color }) => (
+          <div key={label}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-gq-muted text-xs font-semibold tracking-[0.6px]">{label}</span>
+              <span className="text-gq-text text-xs font-bold tracking-[0.6px]">{count}</span>
+            </div>
+            <div className="h-[6px] w-full bg-gq-row rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${(count / maxCount) * 100}%`, backgroundColor: color }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveTopicFilters({
+  topics,
+  selected,
+  onSelect,
+}: {
+  topics: TopicCount[];
+  selected: string | null;
+  onSelect: (topic: string | null) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-gq-border bg-gq-card p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <span className="text-gq-muted text-xs font-semibold tracking-[0.6px] uppercase">Topics</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {topics.map(({ Topic, Count }) => {
+          const isSelected = Topic === selected;
+          return (
+            <div
+              key={Topic}
+              onClick={() => onSelect(isSelected ? null : Topic)}
+              className={`flex items-center justify-between px-2 py-2 rounded-sm cursor-pointer transition-colors hover:bg-gq-nav-active/20`}
+            >
+              <div className="flex items-center gap-2.5 pl-0.5">
+                <div className="flex items-center justify-center h-6 shrink-0">
+                  {isSelected ? <IconStar /> : <IconFolder />}
+                </div>
+                <span
+                  className={`text-base leading-6 ${isSelected ? "font-bold text-gq-blue" : "font-normal text-gq-text"}`}
+                >
+                  {Topic}
+                </span>
+              </div>
+              {isSelected ? (
+                <div className="bg-gq-blue/20 rounded-sm px-[6px]">
+                  <span className="text-gq-blue text-[10px] font-bold leading-6">{Count}</span>
+                </div>
+              ) : (
+                <span className="text-gq-muted text-[10px] font-normal leading-6">{Count}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LiveProblemsTable({ questions }: { questions: QuestionListItem[] }) {
+  const navigate = useNavigate();
+
+  if (questions.length === 0) {
+    return (
+      <div className="rounded-lg border border-gq-border bg-gq-card p-10 text-center text-gq-muted">
+        No questions found.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-gq-border bg-gq-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[600px]">
+          <thead>
+            <tr className="border-b border-gq-border bg-gq-row/30">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[90px]">
+                Type
+              </th>
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
+                Question
+              </th>
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px]">
+                Difficulty
+              </th>
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[100px]">
+                Year
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {questions.map((q, i) => (
+              <tr
+                key={q.id}
+                onClick={() => navigate(`/question/${q.id}`)}
+                className={`cursor-pointer hover:bg-gq-nav-active/20 transition-colors ${
+                  i > 0 ? "border-t border-gq-border" : ""
+                }`}
+              >
+                <td className="px-6 py-6">
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-gq-tag text-gq-muted rounded-sm px-2 py-1">
+                    {q.type}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-gq-text text-base leading-tight line-clamp-2">
+                    {q.questionText}
+                  </span>
+                </td>
+                <td className="px-6 py-6">
+                  <DifficultyBadge level={(q.difficulty as any) ?? "Medium"} />
+                </td>
+                <td className="px-6 py-6">
+                  <span className="text-gq-muted text-base">{q.examYear ?? "—"}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function LivePagination({
+  page,
+  pageCount,
+  onPageChange,
+  totalItems,
+  pageSize,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (p: number) => void;
+  totalItems: number;
+  pageSize: number;
+}) {
+  const start = totalItems === 0 ? 0 : page * pageSize + 1;
+  const end = Math.min(totalItems, (page + 1) * pageSize);
+
+  return (
+    <div className="flex items-center justify-between py-4">
+      <span className="text-gq-muted text-sm">
+        Showing {start}-{end} of {totalItems} questions
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(Math.max(0, page - 1))}
+          disabled={page === 0}
+          className={`p-2 transition-colors ${page === 0 ? "opacity-20 cursor-not-allowed" : "text-gq-muted hover:text-gq-text"}`}
+        >
+          <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
+            <path d="M6 12L0 6L6 0L7.4 1.4L2.8 6L7.4 10.6L6 12Z" fill="#C2C6D6" />
+          </svg>
+        </button>
+        {Array.from({ length: pageCount }, (_, i) => i).map((p) => (
+          <button
+            key={p}
+            onClick={() => onPageChange(p)}
+            className={
+              p === page
+                ? "w-9 h-8 flex items-center justify-center rounded-sm border border-gq-blue bg-gq-blue/20 text-gq-blue text-base"
+                : "w-9 h-8 flex items-center justify-center rounded-sm text-gq-muted text-base hover:bg-gq-nav-active/30 transition-colors"
+            }
+          >
+            {p + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => onPageChange(Math.min(pageCount - 1, page + 1))}
+          disabled={page >= pageCount - 1}
+          className={`p-2 transition-colors ${page >= pageCount - 1 ? "opacity-20 cursor-not-allowed" : "text-gq-muted hover:text-gq-text"}`}
+        >
+          <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
+            <path d="M4.6 6L0 1.4L1.4 0L7.4 6L1.4 12L0 10.6L4.6 6Z" fill="#C2C6D6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const PAGE_SIZE = 20;
+
+function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedTopic = searchParams.get("topic");
+  const subject = BRANCH_SUBJECT[branch];
+
+  const [topics, setTopics] = useState<TopicCount[]>([]);
+  const [allQuestions, setAllQuestions] = useState<QuestionListItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTopics(subject).then(setTopics).catch((e) => setError(e.message));
+  }, [subject]);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setPage(0);
+    fetchQuestions({ subject, topic: selectedTopic ?? undefined, limit: 500 })
+      .then(setAllQuestions)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [subject, selectedTopic]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return allQuestions;
+    const q = search.toLowerCase();
+    return allQuestions.filter((item) => item.questionText.toLowerCase().includes(q));
+  }, [allQuestions, search]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  return (
+    <div className="p-8">
+      <div className="flex flex-col xl:flex-row gap-6 max-w-[1206px] mx-auto">
+        {/* Left panel */}
+        <div className="xl:w-[290px] shrink-0 flex flex-col gap-6">
+          <LiveProgressWidget subjectLabel={BRANCH_LABEL[branch]} topic={selectedTopic} questions={allQuestions} />
+          <LiveTopicFilters
+            topics={topics}
+            selected={selectedTopic}
+            onSelect={(topic) =>
+              setSearchParams(topic ? { topic } : {}, { replace: true })
+            }
+          />
+        </div>
+
+        {/* Problems section */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4 pb-12">
+          <div className="flex items-center gap-4 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
+            <div className="flex-1 min-w-[160px] relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <IconSearch size={14} />
+              </div>
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search questions..."
+                className="w-full bg-gq-bg border border-gq-border rounded-[4px] py-[9px] pl-10 pr-4 text-sm text-gq-dim focus:outline-none focus:border-gq-blue/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400 text-sm">
+              Couldn't load questions: {error}
+            </div>
+          )}
+          {loading ? (
+            <div className="rounded-lg border border-gq-border bg-gq-card p-10 text-center text-gq-muted">
+              Loading questions…
+            </div>
+          ) : (
+            <>
+              <LiveProblemsTable questions={pageItems} />
+              <LivePagination
+                page={page}
+                pageCount={pageCount}
+                onPageChange={setPage}
+                totalItems={filtered.length}
+                pageSize={PAGE_SIZE}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProblemsPage() {
+  const branch = getBranch();
+
+  if (isWiredBranch(branch)) {
+    return (
+      <Layout>
+        <LiveProblemsView branch={branch} />
+      </Layout>
+    );
+  }
+
+  // Every other branch keeps the original static mockup, unchanged.
   return (
     <Layout>
       <div className="p-8">
