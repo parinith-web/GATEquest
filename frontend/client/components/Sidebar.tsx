@@ -138,13 +138,6 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           </div>
         </div>
 
-        {/* Nav label */}
-        <div className="px-[25px] mb-2 shrink-0">
-          <span className="text-gq-text-muted text-[12px] font-semibold tracking-[0.6px] uppercase">
-            Dashboards
-          </span>
-        </div>
-
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto px-[17px] flex flex-col gap-1">
           {navItems.map((item) => {

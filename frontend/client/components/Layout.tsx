@@ -28,20 +28,20 @@ const navItems = [
     ),
   },
   {
-    href: "/quests",
-    label: "Quests",
-    icon: (
-      <svg width="10" height="20" viewBox="0 0 10 20" fill="none">
-        <path d="M0 0H10V7.85C10 8.23333 9.91667 8.575 9.75 8.875C9.58333 9.175 9.35 9.41667 9.05 9.6L5.5 11.7L6.2 14H10L6.9 16.2L8.1 20L5 17.65L1.9 20L3.1 16.2L0 14H3.8L4.5 11.7L0.95 9.6C0.65 9.41667 0.416667 9.175 0.25 8.875C0.0833333 8.575 0 8.23333 0 7.85V0ZM2 2V7.85L4 9.05V2H2ZM8 2H6V9.05L8 7.85V2Z" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
     href: "/problems",
     label: "Problems",
     icon: (
       <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
         <path d="M6 12L0 6L6 0L7.425 1.425L2.825 6.025L7.4 10.6L6 12ZM14 12L12.575 10.575L17.175 5.975L12.6 1.4L14 0L20 6L14 12Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    href: "/quests",
+    label: "Quests",
+    icon: (
+      <svg width="10" height="20" viewBox="0 0 10 20" fill="none">
+        <path d="M0 0H10V7.85C10 8.23333 9.91667 8.575 9.75 8.875C9.58333 9.175 9.35 9.41667 9.05 9.6L5.5 11.7L6.2 14H10L6.9 16.2L8.1 20L5 17.65L1.9 20L3.1 16.2L0 14H3.8L4.5 11.7L0.95 9.6C0.65 9.41667 0.416667 9.175 0.25 8.875C0.0833333 8.575 0 8.23333 0 7.85V0ZM2 2V7.85L4 9.05V2H2ZM8 2H6V9.05L8 7.85V2Z" fill="currentColor" />
       </svg>
     ),
   },
@@ -151,7 +151,12 @@ function AppSidebar({
                     : "px-3 text-gq-text-muted hover:text-white hover:bg-gq-card",
                 ].join(" ")}
               >
-                <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
+                <span
+                  className={[
+                    "w-5 h-5 flex items-center justify-center shrink-0",
+                    isActive ? "text-white" : "text-gq-text-muted",
+                  ].join(" ")}
+                >
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -176,7 +181,12 @@ function AppSidebar({
                     : "text-gq-text-muted hover:text-white hover:bg-gq-card",
                 ].join(" ")}
               >
-                <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
+                <span
+                  className={[
+                    "w-5 h-5 flex items-center justify-center shrink-0",
+                    isActive ? "text-white" : "text-gq-text-muted",
+                  ].join(" ")}
+                >
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -245,7 +255,6 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
 
           {/* Breadcrumb */}
           <div className="hidden md:flex items-center gap-2 text-[14px] pl-4 ml-1 border-l border-gq-border min-w-0">
-            <span className="text-gq-text-muted whitespace-nowrap">Dashboards /</span>
             <span className="text-white font-medium truncate">{pageName}</span>
           </div>
         </div>

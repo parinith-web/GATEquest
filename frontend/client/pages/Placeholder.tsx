@@ -24,7 +24,6 @@ export default function Placeholder() {
             </svg>
           </button>
           <span className="text-[15px]">
-            <span className="text-gq-text-muted">Dashboards / </span>
             <span className="text-white">{displayName}</span>
           </span>
         </header>
