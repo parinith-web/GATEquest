@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
 import {
@@ -143,7 +142,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
         <div
           className="absolute inset-0 rounded-xl pointer-events-none"
           style={{
-            boxShadow: "0 0 60px 12px rgba(80, 120, 255, 0.25)",
+            boxShadow: "0 0 70px 16px rgba(99, 110, 255, 0.3)",
             transform: "rotate(-32deg) skewY(12deg) scaleY(0.78)",
             transformOrigin: "center center",
           }}
@@ -164,7 +163,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
             : isCompleted
             ? "border-emerald-500/35 bg-[rgba(8,22,14,0.75)]"
             : isLocked
-            ? "border-white/[0.06] bg-[rgba(255,255,255,0.025)] opacity-60 hover:opacity-100"
+            ? "border-indigo-400/[0.10] bg-[rgba(120,130,255,0.035)] opacity-70 hover:opacity-100"
             : "border-white/[0.10] bg-[rgba(255,255,255,0.04)]"
         )}
         style={{
@@ -190,22 +189,20 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
 
         {/* Top row: icon + badge */}
         <div className="flex items-start justify-between">
-          {isLocked ? (
-            <Lock className="w-3 h-3 text-zinc-600 mt-0.5" />
-          ) : (
-            <div
-              className={cn(
-                "w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0",
-                highlighted
-                  ? "bg-blue-500/30 text-blue-300"
-                  : isCompleted
-                  ? "bg-emerald-500/25 text-emerald-400"
-                  : "bg-white/10 text-white/60"
-              )}
-            >
-              {isCompleted ? "✓" : isInProgress ? "▶" : "○"}
-            </div>
-          )}
+          <div
+            className={cn(
+              "w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0",
+              highlighted
+                ? "bg-blue-500/30 text-blue-300"
+                : isCompleted
+                ? "bg-emerald-500/25 text-emerald-400"
+                : isLocked
+                ? "bg-indigo-400/10 text-indigo-300/50"
+                : "bg-white/10 text-white/60"
+            )}
+          >
+            {isCompleted ? "✓" : isInProgress ? "▶" : "○"}
+          </div>
 
           {isInProgress && (
             <span className="text-[8px] text-emerald-400 font-semibold uppercase tracking-wider">
@@ -228,10 +225,12 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
           >
             {name}
           </div>
-          {isLocked ? (
-            <div className="text-[8px] text-zinc-600 mt-0.5">Locked</div>
-          ) : topics ? (
-            <div className="text-[8px] text-zinc-500 mt-0.5">{topics} Topics</div>
+          {topics ? (
+            <div className={cn("text-[8px] mt-0.5", isLocked ? "text-indigo-300/40" : "text-zinc-500")}>
+              {topics} Topics
+            </div>
+          ) : isLocked ? (
+            <div className="text-[8px] text-indigo-300/40 mt-0.5">Coming up</div>
           ) : null}
         </div>
 
@@ -293,7 +292,7 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
           : isCompleted
           ? "border-emerald-500/25 bg-emerald-950/20"
           : isLocked
-          ? "border-white/[0.06] bg-white/[0.02] opacity-60"
+          ? "border-indigo-400/[0.10] bg-[rgba(120,130,255,0.03)] opacity-70"
           : "border-white/10 bg-white/[0.04]"
       )}
     >
@@ -301,12 +300,11 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
         <span
           className={cn(
             "font-semibold text-sm",
-            isLocked ? "text-zinc-500" : "text-white"
+            isLocked ? "text-zinc-400" : "text-white"
           )}
         >
           {name}
         </span>
-        {isLocked && <Lock className="w-3.5 h-3.5 text-zinc-600" />}
         {isCompleted && (
           <span className="text-[10px] font-semibold text-emerald-400">100%</span>
         )}
@@ -317,12 +315,13 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
         )}
       </div>
 
-      {topics && (
-        <span className="text-xs text-zinc-500">{topics} Topics</span>
-      )}
-      {isLocked && (
-        <span className="text-xs text-zinc-600">Locked</span>
-      )}
+      {topics ? (
+        <span className={cn("text-xs", isLocked ? "text-indigo-300/40" : "text-zinc-500")}>
+          {topics} Topics
+        </span>
+      ) : isLocked ? (
+        <span className="text-xs text-indigo-300/40">Coming up</span>
+      ) : null}
 
       {progress !== undefined && !isLocked && (
         <div className="h-1 rounded-full bg-white/10 mt-1">
@@ -416,25 +415,37 @@ export default function RoadmapsPage() {
 
   return (
     <Layout>
-      <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 pb-8">
-        {/* Diamond grid background */}
+      <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 pb-8 bg-[#08080b]">
+        {/* Isometric canvas grid — full-bleed diamond lattice */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage: `
-              repeating-linear-gradient(45deg, rgba(255,255,255,0.032) 0, rgba(255,255,255,0.032) 1px, transparent 1px, transparent 50%),
-              repeating-linear-gradient(-45deg, rgba(255,255,255,0.032) 0, rgba(255,255,255,0.032) 1px, transparent 1px, transparent 50%)
+              repeating-linear-gradient(60deg, rgba(148,163,255,0.09) 0, rgba(148,163,255,0.09) 1px, transparent 1px, transparent 68px),
+              repeating-linear-gradient(-60deg, rgba(148,163,255,0.09) 0, rgba(148,163,255,0.09) 1px, transparent 1px, transparent 68px)
             `,
-            backgroundSize: "68px 68px",
+            backgroundPosition: "center",
           }}
         />
 
-        {/* Radial fade overlay */}
+        {/* Ambient purple-blue light source, emanating from the canvas center */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `
+              radial-gradient(ellipse 55% 50% at 48% 52%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.10) 35%, transparent 68%),
+              radial-gradient(ellipse 40% 38% at 60% 42%, rgba(56,131,255,0.16) 0%, transparent 65%)
+            `,
+            mixBlendMode: "screen",
+          }}
+        />
+
+        {/* Edge vignette to seat the isometric plane inside the canvas */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse 80% 70% at 50% 60%, transparent 0%, rgba(14,14,14,0.55) 65%, rgba(14,14,14,0.92) 100%)",
+              "radial-gradient(ellipse 85% 75% at 50% 55%, transparent 0%, rgba(8,8,11,0.5) 60%, rgba(8,8,11,0.95) 100%)",
           }}
         />
 
