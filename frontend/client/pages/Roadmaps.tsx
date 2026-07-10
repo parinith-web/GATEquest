@@ -28,14 +28,15 @@ interface Subject {
   size: CardSize;
 }
 
-const SUBJECTS: Subject[] = [
+type SubjectSeed = Omit<Subject, "gridPos">;
+
+const SUBJECT_SEEDS: SubjectSeed[] = [
   {
     id: "eng-math",
     name: "Eng. Mathematics",
     topics: 24,
     progress: 100,
     status: "completed",
-    gridPos: { col: 3, row: 2 },
     size: "md",
   },
   {
@@ -45,8 +46,25 @@ const SUBJECTS: Subject[] = [
     progress: 65,
     status: "in-progress",
     highlighted: true,
-    gridPos: { col: 4, row: 3 },
     size: "lg",
+  },
+  {
+    id: "operating-sys",
+    name: "Operating Sys",
+    status: "locked",
+    size: "sm",
+  },
+  {
+    id: "compiler-design",
+    name: "Compiler Design",
+    status: "locked",
+    size: "sm",
+  },
+  {
+    id: "databases",
+    name: "Databases",
+    status: "locked",
+    size: "sm",
   },
   {
     id: "digital-logic",
@@ -54,7 +72,6 @@ const SUBJECTS: Subject[] = [
     topics: 15,
     progress: 75,
     status: "active",
-    gridPos: { col: 2, row: 4 },
     size: "md",
   },
   {
@@ -63,40 +80,56 @@ const SUBJECTS: Subject[] = [
     topics: 18,
     progress: 40,
     status: "active",
-    gridPos: { col: 6, row: 4 },
     size: "md",
-  },
-  {
-    id: "databases",
-    name: "Databases",
-    status: "locked",
-    gridPos: { col: 1, row: 3 },
-    size: "sm",
-  },
-  {
-    id: "operating-sys",
-    name: "Operating Sys",
-    status: "locked",
-    gridPos: { col: 6, row: 2 },
-    size: "sm",
-  },
-  {
-    id: "compiler-design",
-    name: "Compiler Design",
-    status: "locked",
-    gridPos: { col: 8, row: 1.5 },
-    size: "sm",
   },
   {
     id: "theory-of-comp",
     name: "Theory of Comp",
     status: "locked",
-    gridPos: { col: 8, row: 3 },
     size: "sm",
   },
 ];
 
+// Full-screen matrix layout: arranges n items into an evenly-spaced grid of
+// rows/columns, returned as fractions (0..1) of the canvas so cards spread
+// across the entire section instead of clustering in the middle. Handles a
+// short last row by centering it rather than leaving it flush left.
+function computeMatrixPositions(n: number): { col: number; row: number }[] {
+  if (n <= 0) return [];
+  const cols = Math.max(2, Math.round(Math.sqrt(n * (16 / 9))));
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const marginX = 0.1;
+  const marginY = 0.18;
+
+  const positions: { col: number; row: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    const itemsInRow = Math.min(cols, n - r * cols);
+
+    const colFrac =
+      itemsInRow > 1
+        ? marginX + ((c + 0.5) / itemsInRow) * (1 - 2 * marginX)
+        : 0.5;
+    const rowFrac =
+      rows > 1 ? marginY + ((r + 0.5) / rows) * (1 - 2 * marginY) : 0.5;
+
+    positions.push({ col: colFrac, row: rowFrac });
+  }
+  return positions;
+}
+
+const MOCK_MATRIX = computeMatrixPositions(SUBJECT_SEEDS.length);
+const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
+  ...seed,
+  gridPos: MOCK_MATRIX[i],
+}));
+
 // ─── Isometric Card ──────────────────────────────────────────────────────────
+
+// Shared isometric tilt — used by the cards, their glow, and the background
+// grid so the whole canvas reads as one consistently-angled plane.
+const ISO_TRANSFORM = "rotate(-38deg) skewY(16deg) scaleY(0.72)";
 
 const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
   sm: { w: 160, h: 100 },
@@ -104,15 +137,13 @@ const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
   lg: { w: 270, h: 170 },
 };
 
-// Isometric grid unit sizes (desktop) — kept in step with the background
-// lattice tile size below so cards sit on the grid rather than crowding it.
-const ISO_COL = 190; // px per grid column
-const ISO_ROW = 165; // px per grid row
-
+// gridPos.col / gridPos.row are fractions (0..1) of the canvas — converted
+// here to percentage strings so the layout fills the full screen and stays
+// responsive instead of relying on a fixed pixel grid.
 function isoPos(col: number, row: number) {
   return {
-    left: col * ISO_COL,
-    top: row * ISO_ROW,
+    left: `${col * 100}%`,
+    top: `${row * 100}%`,
   };
 }
 
@@ -144,7 +175,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
           className="absolute inset-0 rounded-xl pointer-events-none"
           style={{
             boxShadow: "0 0 70px 16px rgba(99, 110, 255, 0.3)",
-            transform: "rotate(-32deg) skewY(12deg) scaleY(0.78)",
+            transform: ISO_TRANSFORM,
             transformOrigin: "center center",
           }}
         />
@@ -168,7 +199,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
             : "border-white/[0.10] bg-[rgba(255,255,255,0.04)]"
         )}
         style={{
-          transform: "rotate(-32deg) skewY(12deg) scaleY(0.78)",
+          transform: ISO_TRANSFORM,
           transformOrigin: "center center",
         }}
       >
@@ -263,7 +294,7 @@ const IsometricRoadmap = ({
   subjects: Subject[];
   onOpen?: (s: Subject) => void;
 }) => (
-  <div className="relative w-full overflow-x-auto min-w-[1500px]" style={{ height: 760 }}>
+  <div className="relative w-full" style={{ height: "min(78vh, 780px)", minHeight: 560 }}>
     {subjects.map((subject) => (
       <SubjectCard key={subject.id} subject={subject} onOpen={onOpen} />
     ))}
@@ -343,21 +374,10 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
 
 // ─── Live roadmap (CS / DA) ────────────────────────────────────────────────
 //
-// Unlike SUBJECTS above (hand-placed mock grid coordinates), a live topic
-// list has a variable length that comes from the DB, so positions are
-// generated with a simple wave pattern instead of being hand-authored.
-// This keeps the same isometric-card visual language for real topics.
-
-function generateGridPositions(n: number): { col: number; row: number }[] {
-  const positions: { col: number; row: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    positions.push({
-      col: 1.5 + i * 1.4,
-      row: 2.6 + Math.sin(i * 1.05) * 1.5,
-    });
-  }
-  return positions;
-}
+// A live topic list has a variable length that comes from the DB, so it
+// shares the same computeMatrixPositions layout used for the mock SUBJECTS
+// above — an evenly-spaced, full-screen matrix rather than hand-authored
+// coordinates.
 
 const LIVE_CARD_SIZES: CardSize[] = ["md", "lg", "sm"];
 
@@ -374,7 +394,7 @@ function useLiveTopics(branch: WiredBranch | null) {
         if (cancelled) return;
         const countByTopic = new Map(counts.map((c) => [c.Topic, c.Count]));
         const order = BRANCH_TOPIC_ORDER[branch];
-        const positions = generateGridPositions(order.length);
+        const positions = computeMatrixPositions(order.length);
 
         const built: Subject[] = order.map((topic, i) => ({
           id: topic,
@@ -429,7 +449,7 @@ export default function RoadmapsPage() {
                 repeating-linear-gradient(45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px),
                 repeating-linear-gradient(-45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px)
               `,
-              transform: "rotate(-32deg) skewY(12deg) scaleY(0.78)",
+              transform: ISO_TRANSFORM,
               transformOrigin: "center center",
             }}
           />
@@ -468,7 +488,7 @@ export default function RoadmapsPage() {
         {subjects && (
           <>
             {/* ── Isometric roadmap (desktop) ── */}
-            <div className="hidden md:block relative z-10 pb-8 overflow-x-auto">
+            <div className="hidden md:block relative z-10 pb-8">
               <IsometricRoadmap subjects={subjects} onOpen={wired ? openTopic : undefined} />
             </div>
 
