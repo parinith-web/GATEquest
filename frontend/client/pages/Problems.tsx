@@ -336,12 +336,12 @@ function TopicFilters() {
               starred ? "" : "hover:bg-gq-nav-active/20"
             }`}
           >
-            <div className="flex items-center gap-2.5 pl-0.5">
+            <div className="flex items-center gap-2.5 pl-0.5 min-w-0">
               <div className="flex items-center justify-center h-6 shrink-0">
                 {starred ? <IconStar /> : <IconFolder />}
               </div>
               <span
-                className={`text-base font-${starred ? "bold" : "normal"} leading-6 ${
+                className={`text-base font-${starred ? "bold" : "normal"} leading-6 truncate ${
                   starred ? "text-gq-blue" : "text-gq-text"
                 }`}
               >
@@ -349,11 +349,11 @@ function TopicFilters() {
               </span>
             </div>
             {starred ? (
-              <div className="bg-gq-blue/20 rounded-sm px-[6px]">
-                <span className="text-gq-blue text-[10px] font-bold leading-6">{count}</span>
+              <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0">
+                <span className="text-gq-blue text-[10px] font-bold leading-6 whitespace-nowrap">{count}</span>
               </div>
             ) : (
-              <span className="text-gq-muted text-[10px] font-normal leading-6">{count}</span>
+              <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap">{count}</span>
             )}
           </div>
         ))}
@@ -387,16 +387,16 @@ function ProblemsTable() {
         <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b border-gq-border bg-gq-row/30">
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[115px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[115px] whitespace-nowrap">
                 Status
               </th>
               <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
                 Title
               </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px] whitespace-nowrap">
                 Difficulty
               </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[120px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[120px] whitespace-nowrap">
                 Success
               </th>
               <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
@@ -659,22 +659,22 @@ function LiveTopicFilters({
               onClick={() => onSelect(isSelected ? null : Topic)}
               className={`flex items-center justify-between px-2 py-2 rounded-sm cursor-pointer transition-colors hover:bg-gq-nav-active/20`}
             >
-              <div className="flex items-center gap-2.5 pl-0.5">
+              <div className="flex items-center gap-2.5 pl-0.5 min-w-0">
                 <div className="flex items-center justify-center h-6 shrink-0">
                   {isSelected ? <IconStar /> : <IconFolder />}
                 </div>
                 <span
-                  className={`text-base leading-6 ${isSelected ? "font-bold text-gq-blue" : "font-normal text-gq-text"}`}
+                  className={`text-base leading-6 truncate ${isSelected ? "font-bold text-gq-blue" : "font-normal text-gq-text"}`}
                 >
                   {Topic}
                 </span>
               </div>
               {isSelected ? (
-                <div className="bg-gq-blue/20 rounded-sm px-[6px]">
-                  <span className="text-gq-blue text-[10px] font-bold leading-6">{Count}</span>
+                <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0">
+                  <span className="text-gq-blue text-[10px] font-bold leading-6 whitespace-nowrap">{Count}</span>
                 </div>
               ) : (
-                <span className="text-gq-muted text-[10px] font-normal leading-6">{Count}</span>
+                <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap">{Count}</span>
               )}
             </div>
           );
@@ -701,16 +701,16 @@ function LiveProblemsTable({ questions }: { questions: QuestionListItem[] }) {
         <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b border-gq-border bg-gq-row/30">
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[90px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[90px] whitespace-nowrap">
                 Type
               </th>
               <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
                 Question
               </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px] whitespace-nowrap">
                 Difficulty
               </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[100px]">
+              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[100px] whitespace-nowrap">
                 Year
               </th>
             </tr>
@@ -807,6 +807,85 @@ function LivePagination({
   );
 }
 
+// ─── Sorting ───────────────────────────────────────────────────────────────
+
+type SortOption = "year_desc" | "year_asc" | "type_mcq" | "type_nat";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "year_desc", label: "Year: Newest first" },
+  { value: "year_asc", label: "Year: Oldest first" },
+  { value: "type_mcq", label: "Type: MCQ first" },
+  { value: "type_nat", label: "Type: NAT first" },
+];
+
+function sortQuestions(questions: QuestionListItem[], sortBy: SortOption): QuestionListItem[] {
+  const arr = [...questions];
+  switch (sortBy) {
+    case "year_desc":
+      arr.sort((a, b) => (b.examYear ?? -Infinity) - (a.examYear ?? -Infinity));
+      break;
+    case "year_asc":
+      arr.sort((a, b) => (a.examYear ?? Infinity) - (b.examYear ?? Infinity));
+      break;
+    case "type_mcq":
+      arr.sort((a, b) => (a.type === "nat" ? 1 : 0) - (b.type === "nat" ? 1 : 0));
+      break;
+    case "type_nat":
+      arr.sort((a, b) => (a.type === "nat" ? 0 : 1) - (b.type === "nat" ? 0 : 1));
+      break;
+  }
+  return arr;
+}
+
+function SortDropdown({
+  value,
+  onChange,
+}: {
+  value: SortOption;
+  onChange: (v: SortOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = SORT_OPTIONS.find((o) => o.value === value);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2.5 px-4 py-[7px] border border-gq-border rounded-[4px] text-gq-muted text-base hover:border-gq-blue/50 transition-colors"
+      >
+        <span className="text-gq-text-muted text-sm">Sort:</span>
+        <span className="whitespace-nowrap">{current?.label ?? "Sort"}</span>
+        <IconChevronDown />
+      </button>
+
+      {open && (
+        <>
+          {/* Click-away overlay */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-[210px] rounded-[6px] border border-gq-border bg-gq-card shadow-lg z-50 overflow-hidden">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                  opt.value === value
+                    ? "bg-gq-blue/20 text-gq-blue"
+                    : "text-gq-muted hover:bg-gq-nav-active/20 hover:text-gq-text"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
@@ -816,7 +895,7 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
 
   const [topics, setTopics] = useState<TopicCount[]>([]);
   const [allQuestions, setAllQuestions] = useState<QuestionListItem[]>([]);
-  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("year_desc");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -835,14 +914,10 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
       .finally(() => setLoading(false));
   }, [subject, selectedTopic]);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return allQuestions;
-    const q = search.toLowerCase();
-    return allQuestions.filter((item) => item.questionText.toLowerCase().includes(q));
-  }, [allQuestions, search]);
+  const sorted = useMemo(() => sortQuestions(allQuestions, sortBy), [allQuestions, sortBy]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageItems = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <div className="p-8">
@@ -861,21 +936,14 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
 
         {/* Problems section */}
         <div className="flex-1 min-w-0 flex flex-col gap-4 pb-12">
-          <div className="flex items-center gap-4 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
-            <div className="flex-1 min-w-[160px] relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <IconSearch size={14} />
-              </div>
-              <input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(0);
-                }}
-                placeholder="Search questions..."
-                className="w-full bg-gq-bg border border-gq-border rounded-[4px] py-[9px] pl-10 pr-4 text-sm text-gq-dim focus:outline-none focus:border-gq-blue/50 transition-colors"
-              />
-            </div>
+          <div className="flex items-center justify-end gap-4 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
+            <SortDropdown
+              value={sortBy}
+              onChange={(v) => {
+                setSortBy(v);
+                setPage(0);
+              }}
+            />
           </div>
 
           {error && (
@@ -894,7 +962,7 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
                 page={page}
                 pageCount={pageCount}
                 onPageChange={setPage}
-                totalItems={filtered.length}
+                totalItems={sorted.length}
                 pageSize={PAGE_SIZE}
               />
             </>
