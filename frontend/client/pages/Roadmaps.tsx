@@ -437,7 +437,10 @@ export default function RoadmapsPage() {
   return (
     <Layout>
       <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 pb-8 bg-[#08080b]">
-        {/* Isometric canvas grid — same tilt as the cards, large cells, oversized so rotation doesn't clip corners */}
+        {/* Isometric canvas grid — lines start at 0/90deg (same as the card's
+            own rectangle edges) and get the identical ISO_TRANSFORM, so they
+            land exactly parallel/perpendicular to the cards instead of
+            crossing at a mismatched angle. Oversized so rotation doesn't clip corners. */}
         <div
           className="absolute pointer-events-none overflow-hidden inset-0"
         >
@@ -446,8 +449,8 @@ export default function RoadmapsPage() {
             style={{
               inset: "-60%",
               backgroundImage: `
-                repeating-linear-gradient(45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px),
-                repeating-linear-gradient(-45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px)
+                repeating-linear-gradient(0deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px),
+                repeating-linear-gradient(90deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px)
               `,
               transform: ISO_TRANSFORM,
               transformOrigin: "center center",
