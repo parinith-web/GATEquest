@@ -117,12 +117,12 @@ function AppSidebar({
           "fixed top-[65px] bottom-0 lg:static lg:inset-y-0 left-0 z-40 flex flex-col group/sidebar",
           "shrink-0 bg-gq-sidebar border-r border-gq-border",
           "transition-[transform,width] duration-300 ease-in-out",
-          collapsed ? "lg:w-[76px]" : "lg:w-[242px]",
+          collapsed ? "lg:w-[60px]" : "lg:w-[242px]",
           "w-[242px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        {/* Sidebar top strip — collapse toggle only, brand lives in the header */}
+        {/* Sidebar top strip — a single toggle icon when collapsed, full header otherwise */}
         <div
           className={[
             "h-[57px] flex items-center border-b border-gq-border shrink-0",
@@ -138,50 +138,38 @@ function AppSidebar({
             Menu
           </span>
 
-          {/* Mobile close (X) */}
+          {/* Mobile close (X) — always available on mobile, regardless of desktop collapse state */}
           <button
             onClick={onClose}
             aria-label="Close sidebar"
-            className={[
-              "lg:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors",
-              collapsed ? "hidden" : "",
-            ].join(" ")}
+            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M2 2L14 14M14 2L2 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
 
-          {/* Collapse toggle (desktop only) */}
+          {/* Collapse / expand toggle (desktop only) — single panel icon, LeetCode-style */}
           <button
             onClick={onToggleCollapse}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={[
-              "hidden lg:flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
-              "text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors",
-            ].join(" ")}
+            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg shrink-0 text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 12 12"
-              fill="none"
-              className={["transition-transform duration-300", collapsed ? "rotate-180" : ""].join(" ")}
-            >
-              <path
-                d="M7.5 1.5L3 6L7.5 10.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
+              <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
             </svg>
           </button>
         </div>
 
-        {/* Main nav */}
-        <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden">
+        {/* Main nav — hidden on desktop when collapsed; always visible on mobile */}
+        <nav
+          className={[
+            "flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden",
+            collapsed ? "lg:hidden" : "",
+          ].join(" ")}
+        >
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -189,10 +177,8 @@ function AppSidebar({
                 key={item.href}
                 to={item.href}
                 onClick={onClose}
-                title={collapsed ? item.label : undefined}
                 className={[
                   "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
-                  collapsed ? "lg:justify-center lg:px-0" : "",
                   isActive
                     ? "bg-gq-active text-white"
                     : "text-gq-text-muted hover:text-white hover:bg-gq-card",
@@ -201,14 +187,19 @@ function AppSidebar({
                 <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
                   {item.icon}
                 </span>
-                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Bottom nav */}
-        <div className="border-t border-gq-border px-3 py-4 flex flex-col gap-1 shrink-0">
+        {/* Bottom nav — hidden on desktop when collapsed; always visible on mobile */}
+        <div
+          className={[
+            "border-t border-gq-border px-3 py-4 flex flex-col gap-1 shrink-0",
+            collapsed ? "lg:hidden" : "",
+          ].join(" ")}
+        >
           {bottomItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -216,10 +207,8 @@ function AppSidebar({
                 key={item.href}
                 to={item.href}
                 onClick={onClose}
-                title={collapsed ? item.label : undefined}
                 className={[
                   "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
-                  collapsed ? "lg:justify-center lg:px-0" : "",
                   isActive
                     ? "bg-gq-active text-white"
                     : "text-gq-text-muted hover:text-white hover:bg-gq-card",
@@ -228,7 +217,7 @@ function AppSidebar({
                 <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
                   {item.icon}
                 </span>
-                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}
