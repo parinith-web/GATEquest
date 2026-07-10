@@ -230,19 +230,6 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
             </svg>
           </button>
 
-          {/* Desktop sidebar collapse/expand toggle — lives on the header line, always present */}
-          <button
-            className="hidden lg:flex items-center justify-center w-8 h-8 -ml-1 rounded-lg shrink-0 text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
-            onClick={toggleCollapsed}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-              <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
-          </button>
-
           {/* Brand — logo + name */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img
@@ -304,6 +291,22 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
         />
+
+        {/* Sidebar collapse/expand toggle — floats in the content area's left
+            side (not the header), in the empty gutter next to the sidebar
+            edge. Slides with the sidebar as it collapses/expands. */}
+        <button
+          className="hidden lg:flex fixed z-20 items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-[left,background-color,color] duration-300 ease-in-out"
+          style={{ top: 65 + 16, left: sidebarCollapsed ? 16 : 242 + 16 }}
+          onClick={toggleCollapsed}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
+            <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
+          </svg>
+        </button>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-gq-bg min-w-0">
