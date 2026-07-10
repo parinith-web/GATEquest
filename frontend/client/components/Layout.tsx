@@ -309,7 +309,7 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
         </button>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gq-bg min-w-0">
+        <main className="flex-1 overflow-y-auto bg-gq-bg min-w-0 lg:pl-14">
           {children}
         </main>
       </div>
