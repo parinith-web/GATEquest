@@ -145,10 +145,10 @@ function AppSidebar({
                 to={item.href}
                 onClick={onClose}
                 className={[
-                  "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
+                  "flex items-center gap-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
                   isActive
-                    ? "bg-gq-active text-white"
-                    : "text-gq-text-muted hover:text-white hover:bg-gq-card",
+                    ? "mx-2 px-2 bg-gq-active text-white"
+                    : "px-3 text-gq-text-muted hover:text-white hover:bg-gq-card",
                 ].join(" ")}
               >
                 <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
@@ -296,13 +296,13 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
             side (not the header), in the empty gutter next to the sidebar
             edge. Slides with the sidebar as it collapses/expands. */}
         <button
-          className="hidden lg:flex fixed z-50 items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-[left,background-color,color] duration-300 ease-in-out"
+          className="hidden lg:flex fixed z-50 items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white transition-[left,background-color,color] duration-300 ease-in-out"
           style={{ top: 65 + 16, left: sidebarCollapsed ? 16 : 242 - 16 }}
           onClick={toggleCollapsed}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none">
             <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
             <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
           </svg>
