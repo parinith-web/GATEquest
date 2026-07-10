@@ -148,6 +148,38 @@ function projectIso(localX: number, localY: number) {
   };
 }
 
+const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
+  sm: { w: 168, h: 112 },
+  md: { w: 228, h: 148 },
+  lg: { w: 280, h: 182 },
+};
+
+// How far a card's own (rotated/skewed) corners reach from its center, in
+// screen pixels — needed so the pyramid's top/bottom padding accounts for
+// the card's rendered footprint, not just its center point.
+function projectedCardHalfExtent(size: CardSize) {
+  const { w, h } = CARD_DIMS[size];
+  const corners = [
+    [-w / 2, -h / 2],
+    [w / 2, -h / 2],
+    [w / 2, h / 2],
+    [-w / 2, h / 2],
+  ];
+  const projected = corners.map(([x, y]) => projectIso(x, y));
+  const xs = projected.map((p) => p.x);
+  const ys = projected.map((p) => p.y);
+  return {
+    halfW: (Math.max(...xs) - Math.min(...xs)) / 2,
+    halfH: (Math.max(...ys) - Math.min(...ys)) / 2,
+  };
+}
+
+// Space reserved above the top card / below the bottom card, and a fixed
+// nudge to shift the whole pyramid right of dead-center.
+const TOP_MARGIN = 28;
+const BOTTOM_MARGIN = 32;
+const SHIFT_X = 64;
+
 // Local grid spacing (pre-transform pixel units) between cards within a
 // pyramid row, and between successive pyramid rows.
 const COL_UNIT = 245;
@@ -161,14 +193,22 @@ const ROW_UNIT = 250;
 // Rows are laid out flat first (row = constant local y, columns spread
 // along local x), then projected through the same rotate/skew/scale as the
 // cards and background grid, so the rows come out parallel to the
-// isometric grid lines instead of sitting flat. Because the skew mixes x
-// and y asymmetrically, the projected pyramid's bounding box isn't
-// centered on the local origin — so after projecting, we shift every point
-// by the bounding-box center, which keeps the whole pyramid centered under
-// the canvas (and the sidebar-aware content area) instead of drifting to
-// one side.
-function computeTrianglePositions(n: number): { x: number; y: number }[] {
-  if (n <= 0) return [];
+// isometric grid lines instead of sitting flat.
+//
+// Horizontally the projected bounding box is centered (then nudged right by
+// SHIFT_X) so the pyramid isn't skewed toward one edge of its container.
+// Vertically it's anchored from the top (TOP_MARGIN below the container's
+// top edge) rather than centered — centering assumed a container tall
+// enough to hold the whole pyramid either side of its midpoint, but a
+// shorter container just clipped the top card while leaving dead space
+// below the last row. Anchoring from the top, combined with returning the
+// exact height the pyramid needs, means every row is always visible with a
+// consistent margin, and there's no leftover space at the bottom.
+function computeTrianglePositions(
+  n: number,
+  size: CardSize = "md",
+): { positions: { x: number; y: number }[]; canvasHeight: number } {
+  if (n <= 0) return { positions: [], canvasHeight: 0 };
 
   const rowSizes: number[] = [];
   let remaining = n;
@@ -195,30 +235,47 @@ function computeTrianglePositions(n: number): { x: number; y: number }[] {
   const xs = projected.map((p) => p.x);
   const ys = projected.map((p) => p.y);
   const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
 
-  return projected.map((p) => ({ x: p.x - centerX, y: p.y - centerY }));
+  const { halfW, halfH } = projectedCardHalfExtent(size);
+
+  // Shift so the topmost card's top edge sits at TOP_MARGIN, and the
+  // pyramid's horizontal center (plus SHIFT_X) sits at x = 0 (added to the
+  // container's 50% left in isoPos).
+  const offsetX = -centerX + SHIFT_X;
+  const offsetY = TOP_MARGIN + halfH - minY;
+
+  const positions = projected.map((p) => ({
+    x: p.x + offsetX,
+    y: p.y + offsetY,
+  }));
+
+  const canvasHeight = maxY + offsetY + halfH + BOTTOM_MARGIN;
+
+  // Guard against horizontal overflow too: if the widest row would push
+  // past a typical content area, the container itself still scrolls
+  // horizontally via its parent, so no clamping needed here — just report
+  // the layout as computed.
+  void halfW;
+
+  return { positions, canvasHeight };
 }
 
-const MOCK_TRIANGLE = computeTrianglePositions(SUBJECT_SEEDS.length);
+const MOCK_LAYOUT = computeTrianglePositions(SUBJECT_SEEDS.length);
 const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
   ...seed,
-  gridPos: MOCK_TRIANGLE[i],
+  gridPos: MOCK_LAYOUT.positions[i],
 }));
+const MOCK_CANVAS_HEIGHT = MOCK_LAYOUT.canvasHeight;
 
-const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
-  sm: { w: 168, h: 112 },
-  md: { w: 228, h: 148 },
-  lg: { w: 280, h: 182 },
-};
-
-// gridPos.x / gridPos.y are already-projected, already-centered screen
-// pixel offsets from computeTrianglePositions above — just add them to the
-// canvas center.
+// gridPos.x / gridPos.y are already-projected, top-anchored screen pixel
+// offsets from computeTrianglePositions above. x is relative to the
+// container's horizontal center; y is relative to the container's top edge.
 function isoPos(x: number, y: number) {
   return {
     left: `calc(50% + ${x}px)`,
-    top: `calc(50% + ${y}px)`,
+    top: `${y}px`,
   };
 }
 
@@ -364,12 +421,14 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
 
 const IsometricRoadmap = ({
   subjects,
+  height,
   onOpen,
 }: {
   subjects: Subject[];
+  height: number;
   onOpen?: (s: Subject) => void;
 }) => (
-  <div className="relative w-full" style={{ height: "min(78vh, 780px)", minHeight: 560 }}>
+  <div className="relative w-full" style={{ height, minHeight: 420 }}>
     {subjects.map((subject) => (
       <SubjectCard key={subject.id} subject={subject} onOpen={onOpen} />
     ))}
@@ -455,6 +514,7 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
 
 function useLiveTopics(branch: WiredBranch | null) {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
+  const [canvasHeight, setCanvasHeight] = useState(MOCK_CANVAS_HEIGHT);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -466,7 +526,7 @@ function useLiveTopics(branch: WiredBranch | null) {
         if (cancelled) return;
         const countByTopic = new Map(counts.map((c) => [c.Topic, c.Count]));
         const order = BRANCH_TOPIC_ORDER[branch];
-        const positions = computeTrianglePositions(order.length);
+        const { positions, canvasHeight: h } = computeTrianglePositions(order.length);
 
         const built: Subject[] = order.map((topic, i) => ({
           id: topic,
@@ -477,6 +537,7 @@ function useLiveTopics(branch: WiredBranch | null) {
           size: "md",
         }));
         setSubjects(built);
+        setCanvasHeight(h);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to load topics");
@@ -487,7 +548,7 @@ function useLiveTopics(branch: WiredBranch | null) {
     };
   }, [branch]);
 
-  return { subjects, error };
+  return { subjects, canvasHeight, error };
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -496,7 +557,7 @@ export default function RoadmapsPage() {
   const navigate = useNavigate();
   const branch = getBranch();
   const wired = isWiredBranch(branch) ? branch : null;
-  const { subjects: liveSubjects, error: liveError } = useLiveTopics(wired);
+  const { subjects: liveSubjects, canvasHeight: liveCanvasHeight, error: liveError } = useLiveTopics(wired);
 
   const openTopic = (subject: Subject) => {
     navigate(`/problems?topic=${encodeURIComponent(subject.name)}`);
@@ -505,6 +566,7 @@ export default function RoadmapsPage() {
   // Non-wired branches (ECE, EE, CE, ME, Other) keep the exact original
   // mockup below, unchanged.
   const subjects = wired ? liveSubjects : SUBJECTS;
+  const canvasHeight = wired ? liveCanvasHeight : MOCK_CANVAS_HEIGHT;
 
   return (
     <Layout>
@@ -564,7 +626,7 @@ export default function RoadmapsPage() {
           <>
             {/* ── Isometric roadmap (desktop) ── */}
             <div className="hidden md:block relative z-10 pb-8">
-              <IsometricRoadmap subjects={subjects} onOpen={wired ? openTopic : undefined} />
+              <IsometricRoadmap subjects={subjects} height={canvasHeight} onOpen={wired ? openTopic : undefined} />
             </div>
 
             {/* ── Mobile card list ── */}
