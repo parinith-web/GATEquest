@@ -99,14 +99,15 @@ const SUBJECTS: Subject[] = [
 // ─── Isometric Card ──────────────────────────────────────────────────────────
 
 const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
-  sm: { w: 140, h: 88 },
-  md: { w: 200, h: 126 },
-  lg: { w: 248, h: 156 },
+  sm: { w: 160, h: 100 },
+  md: { w: 220, h: 138 },
+  lg: { w: 270, h: 170 },
 };
 
-// Isometric grid unit sizes (desktop)
-const ISO_COL = 130; // px per grid column
-const ISO_ROW = 115; // px per grid row
+// Isometric grid unit sizes (desktop) — kept in step with the background
+// lattice tile size below so cards sit on the grid rather than crowding it.
+const ISO_COL = 190; // px per grid column
+const ISO_ROW = 165; // px per grid row
 
 function isoPos(col: number, row: number) {
   return {
@@ -262,7 +263,7 @@ const IsometricRoadmap = ({
   subjects: Subject[];
   onOpen?: (s: Subject) => void;
 }) => (
-  <div className="relative w-full overflow-x-auto min-w-[1100px]" style={{ height: 620 }}>
+  <div className="relative w-full overflow-x-auto min-w-[1500px]" style={{ height: 760 }}>
     {subjects.map((subject) => (
       <SubjectCard key={subject.id} subject={subject} onOpen={onOpen} />
     ))}
@@ -351,8 +352,8 @@ function generateGridPositions(n: number): { col: number; row: number }[] {
   const positions: { col: number; row: number }[] = [];
   for (let i = 0; i < n; i++) {
     positions.push({
-      col: 1.5 + i * 1.15,
-      row: 2.6 + Math.sin(i * 1.05) * 1.35,
+      col: 1.5 + i * 1.4,
+      row: 2.6 + Math.sin(i * 1.05) * 1.5,
     });
   }
   return positions;
@@ -416,17 +417,23 @@ export default function RoadmapsPage() {
   return (
     <Layout>
       <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 pb-8 bg-[#08080b]">
-        {/* Isometric canvas grid — full-bleed diamond lattice */}
+        {/* Isometric canvas grid — same tilt as the cards, large cells, oversized so rotation doesn't clip corners */}
         <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `
-              repeating-linear-gradient(60deg, rgba(148,163,255,0.09) 0, rgba(148,163,255,0.09) 1px, transparent 1px, transparent 68px),
-              repeating-linear-gradient(-60deg, rgba(148,163,255,0.09) 0, rgba(148,163,255,0.09) 1px, transparent 1px, transparent 68px)
-            `,
-            backgroundPosition: "center",
-          }}
-        />
+          className="absolute pointer-events-none overflow-hidden inset-0"
+        >
+          <div
+            className="absolute"
+            style={{
+              inset: "-60%",
+              backgroundImage: `
+                repeating-linear-gradient(45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px),
+                repeating-linear-gradient(-45deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px)
+              `,
+              transform: "rotate(-32deg) skewY(12deg) scaleY(0.78)",
+              transformOrigin: "center center",
+            }}
+          />
+        </div>
 
         {/* Ambient purple-blue light source, emanating from the canvas center */}
         <div
