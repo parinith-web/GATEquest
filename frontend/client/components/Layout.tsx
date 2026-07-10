@@ -292,21 +292,28 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           collapsed={sidebarCollapsed}
         />
 
-        {/* Sidebar collapse/expand toggle — floats in the content area's left
-            side (not the header), in the empty gutter next to the sidebar
-            edge. Slides with the sidebar as it collapses/expands. */}
-        <button
-          className="hidden lg:flex fixed z-50 items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white transition-[left,background-color,color] duration-300 ease-in-out"
-          style={{ top: 65 + 16, left: sidebarCollapsed ? 20 : 242 - 16 }}
-          onClick={toggleCollapsed}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        {/* Hover zone at the sidebar edge — the toggle button below is
+            hidden until the pointer enters this strip, then fades in. */}
+        <div
+          className="hidden lg:block fixed z-50 top-[65px] bottom-0 group/edge"
+          style={{
+            left: (sidebarCollapsed ? 20 : 242 - 16) - 12,
+            width: 48,
+          }}
         >
-          <svg width="13" height="13" viewBox="0 0 18 18" fill="none">
-            <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-            <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
-          </svg>
-        </button>
+          <button
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white opacity-0 pointer-events-none group-hover/edge:opacity-100 group-hover/edge:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto transition-[left,opacity,background-color,color] duration-300 ease-in-out"
+            style={{ position: "fixed", top: 65 + 16, left: sidebarCollapsed ? 20 : 242 - 16 }}
+            onClick={toggleCollapsed}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg width="13" height="13" viewBox="0 0 18 18" fill="none">
+              <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
+              <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
+          </button>
+        </div>
 
         {/* Page content */}
         <main
