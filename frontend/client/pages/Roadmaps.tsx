@@ -132,9 +132,9 @@ const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
 const ISO_TRANSFORM = "rotate(-38deg) skewY(16deg) scaleY(0.72)";
 
 const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
-  sm: { w: 160, h: 100 },
-  md: { w: 220, h: 138 },
-  lg: { w: 270, h: 170 },
+  sm: { w: 168, h: 112 },
+  md: { w: 228, h: 148 },
+  lg: { w: 280, h: 182 },
 };
 
 // gridPos.col / gridPos.row are fractions (0..1) of the canvas — converted
@@ -195,7 +195,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
             : isCompleted
             ? "border-emerald-500/35 bg-[rgba(8,22,14,0.75)]"
             : isLocked
-            ? "border-indigo-400/[0.10] bg-[rgba(120,130,255,0.035)] opacity-70 hover:opacity-100"
+            ? "border-blue-400/[0.10] bg-[rgba(70,140,255,0.04)] opacity-70 hover:opacity-100"
             : "border-white/[0.10] bg-[rgba(255,255,255,0.04)]"
         )}
         style={{
@@ -229,7 +229,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
                 : isCompleted
                 ? "bg-emerald-500/25 text-emerald-400"
                 : isLocked
-                ? "bg-indigo-400/10 text-indigo-300/50"
+                ? "bg-blue-400/10 text-blue-300/50"
                 : "bg-white/10 text-white/60"
             )}
           >
@@ -251,18 +251,18 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
           <div
             className={cn(
               "font-semibold leading-tight",
-              size === "sm" ? "text-[9px]" : size === "lg" ? "text-[13px]" : "text-[11px]",
+              size === "sm" ? "text-[11px]" : size === "lg" ? "text-[16px]" : "text-[13px]",
               isLocked ? "text-zinc-500" : "text-white"
             )}
           >
             {name}
           </div>
           {topics ? (
-            <div className={cn("text-[8px] mt-0.5", isLocked ? "text-indigo-300/40" : "text-zinc-500")}>
-              {topics} Topics
+            <div className={cn("text-[10px] mt-0.5", isLocked ? "text-blue-300/40" : "text-zinc-500")}>
+              {topics} Questions
             </div>
           ) : isLocked ? (
-            <div className="text-[8px] text-indigo-300/40 mt-0.5">Coming up</div>
+            <div className="text-[10px] text-blue-300/40 mt-0.5">Coming up</div>
           ) : null}
         </div>
 
@@ -324,7 +324,7 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
           : isCompleted
           ? "border-emerald-500/25 bg-emerald-950/20"
           : isLocked
-          ? "border-indigo-400/[0.10] bg-[rgba(120,130,255,0.03)] opacity-70"
+          ? "border-blue-400/[0.10] bg-[rgba(70,140,255,0.035)] opacity-70"
           : "border-white/10 bg-white/[0.04]"
       )}
     >
@@ -348,11 +348,11 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
       </div>
 
       {topics ? (
-        <span className={cn("text-xs", isLocked ? "text-indigo-300/40" : "text-zinc-500")}>
-          {topics} Topics
+        <span className={cn("text-xs", isLocked ? "text-blue-300/40" : "text-zinc-500")}>
+          {topics} Questions
         </span>
       ) : isLocked ? (
-        <span className="text-xs text-indigo-300/40">Coming up</span>
+        <span className="text-xs text-blue-300/40">Coming up</span>
       ) : null}
 
       {progress !== undefined && !isLocked && (
@@ -449,8 +449,8 @@ export default function RoadmapsPage() {
             style={{
               inset: "-60%",
               backgroundImage: `
-                repeating-linear-gradient(0deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px),
-                repeating-linear-gradient(90deg, rgba(148,163,255,0.10) 0, rgba(148,163,255,0.10) 1.5px, transparent 1.5px, transparent 220px)
+                repeating-linear-gradient(0deg, rgba(90,155,255,0.16) 0, rgba(90,155,255,0.16) 1.5px, transparent 1.5px, transparent 220px),
+                repeating-linear-gradient(90deg, rgba(90,155,255,0.16) 0, rgba(90,155,255,0.16) 1.5px, transparent 1.5px, transparent 220px)
               `,
               transform: ISO_TRANSFORM,
               transformOrigin: "center center",
@@ -463,8 +463,8 @@ export default function RoadmapsPage() {
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `
-              radial-gradient(ellipse 55% 50% at 48% 52%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.10) 35%, transparent 68%),
-              radial-gradient(ellipse 40% 38% at 60% 42%, rgba(56,131,255,0.16) 0%, transparent 65%)
+              radial-gradient(ellipse 55% 50% at 48% 52%, rgba(59,130,246,0.13) 0%, rgba(37,99,235,0.06) 35%, transparent 68%),
+              radial-gradient(ellipse 40% 38% at 60% 42%, rgba(56,131,255,0.09) 0%, transparent 65%)
             `,
             mixBlendMode: "screen",
           }}
