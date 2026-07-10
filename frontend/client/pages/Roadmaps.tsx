@@ -458,7 +458,7 @@ export default function RoadmapsPage() {
 
   return (
     <Layout>
-      <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 py-8">
+      <div className="relative overflow-hidden min-h-[calc(100vh-65px)] px-6 pb-8">
         {/* Diamond grid background */}
         <div
           className="absolute inset-0 pointer-events-none"

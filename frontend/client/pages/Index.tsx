@@ -85,7 +85,7 @@ export default function Index() {
 
   return (
     <Layout>
-      <div className="p-[34px] flex flex-col gap-6">
+      <div className="px-[34px] pb-[34px] flex flex-col gap-6">
           {/* Page title + filter */}
           <div className="flex items-center justify-between">
             <h1 className="text-white text-[26px] font-bold leading-[34px]">Overview</h1>

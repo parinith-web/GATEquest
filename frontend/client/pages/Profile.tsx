@@ -413,7 +413,7 @@ function UplinkFeed() {
 export default function ProfilePage() {
   return (
     <Layout>
-      <div className="p-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
+      <div className="px-6 pb-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
         {/* User identity header */}
         <UserHeader />
 

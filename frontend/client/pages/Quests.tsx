@@ -167,7 +167,7 @@ export default function QuestsPage() {
 
   return (
     <Layout>
-      <div className="relative w-full h-[calc(100vh-65px)] overflow-hidden">
+      <div className="relative w-full h-[calc(100vh-65px-16px)] overflow-hidden">
         {/* Slider container */}
         <div
           ref={sliderRef}

@@ -100,7 +100,7 @@ export default function PulsePage() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-[1280px] mx-auto pb-24">
+      <div className="px-6 max-w-[1280px] mx-auto pb-24">
         {/* Local Page Sub-Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-pulse-border pb-4 mb-6">
           <div className="flex items-center gap-3">

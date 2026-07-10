@@ -323,7 +323,7 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
         {/* Page content */}
         <main
           className={[
-            "flex-1 overflow-y-auto bg-gq-bg min-w-0",
+            "flex-1 overflow-y-auto bg-gq-bg min-w-0 pt-4",
             sidebarCollapsed ? "lg:pl-14" : "",
           ].join(" ")}
         >
