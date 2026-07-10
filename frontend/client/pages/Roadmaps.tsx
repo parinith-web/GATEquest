@@ -95,53 +95,7 @@ const SUBJECT_SEEDS: SubjectSeed[] = [
   },
 ];
 
-// Local grid spacing (pre-transform pixel units) between cards within a
-// pyramid row, and between successive pyramid rows.
-const COL_UNIT = 245;
-const ROW_UNIT = 250;
-
-// Pyramid layout: row 0 gets 1 card, row 1 gets 2, row 2 gets 3, row 3 gets
-// 4, and so on, each row centered — so the cards form a widening "reverse V"
-// as you go down. If there aren't enough items to fill a row to its target
-// size, that final row just takes whatever's left (still centered).
-//
-// Positions are computed on a flat, unrotated grid (row = constant local y,
-// columns spread along local x). They're later passed through ISO_MATRIX
-// (the same rotate/skew/scale used on the cards and background grid) so the
-// rows come out parallel to the isometric grid lines instead of sitting flat.
-function computeTrianglePositions(n: number): { x: number; y: number }[] {
-  if (n <= 0) return [];
-
-  const rowSizes: number[] = [];
-  let remaining = n;
-  let nextSize = 1;
-  while (remaining > 0) {
-    const take = Math.min(nextSize, remaining);
-    rowSizes.push(take);
-    remaining -= take;
-    nextSize += 1;
-  }
-
-  const rows = rowSizes.length;
-
-  const positions: { x: number; y: number }[] = [];
-  rowSizes.forEach((count, r) => {
-    const localY = (r - (rows - 1) / 2) * ROW_UNIT;
-    for (let c = 0; c < count; c++) {
-      const localX = (c - (count - 1) / 2) * COL_UNIT;
-      positions.push({ x: localX, y: localY });
-    }
-  });
-  return positions;
-}
-
-const MOCK_TRIANGLE = computeTrianglePositions(SUBJECT_SEEDS.length);
-const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
-  ...seed,
-  gridPos: MOCK_TRIANGLE[i],
-}));
-
-// ─── Isometric Card ──────────────────────────────────────────────────────────
+// ─── Isometric transform ──────────────────────────────────────────────────────
 
 // Shared isometric tilt — used by the cards, their glow, and the background
 // grid so the whole canvas reads as one consistently-angled plane.
@@ -187,23 +141,84 @@ const ISO_MATRIX: Mat2 = (() => {
   return matMul(matMul(R, Sk), Sy);
 })();
 
+function projectIso(localX: number, localY: number) {
+  return {
+    x: ISO_MATRIX[0][0] * localX + ISO_MATRIX[0][1] * localY,
+    y: ISO_MATRIX[1][0] * localX + ISO_MATRIX[1][1] * localY,
+  };
+}
+
+// Local grid spacing (pre-transform pixel units) between cards within a
+// pyramid row, and between successive pyramid rows.
+const COL_UNIT = 245;
+const ROW_UNIT = 250;
+
+// Pyramid layout: row 0 gets 1 card, row 1 gets 2, row 2 gets 3, row 3 gets
+// 4, and so on, each row centered — so the cards form a widening "reverse V"
+// as you go down. If there aren't enough items to fill a row to its target
+// size, that final row just takes whatever's left (still centered).
+//
+// Rows are laid out flat first (row = constant local y, columns spread
+// along local x), then projected through the same rotate/skew/scale as the
+// cards and background grid, so the rows come out parallel to the
+// isometric grid lines instead of sitting flat. Because the skew mixes x
+// and y asymmetrically, the projected pyramid's bounding box isn't
+// centered on the local origin — so after projecting, we shift every point
+// by the bounding-box center, which keeps the whole pyramid centered under
+// the canvas (and the sidebar-aware content area) instead of drifting to
+// one side.
+function computeTrianglePositions(n: number): { x: number; y: number }[] {
+  if (n <= 0) return [];
+
+  const rowSizes: number[] = [];
+  let remaining = n;
+  let nextSize = 1;
+  while (remaining > 0) {
+    const take = Math.min(nextSize, remaining);
+    rowSizes.push(take);
+    remaining -= take;
+    nextSize += 1;
+  }
+
+  const rows = rowSizes.length;
+
+  const localPositions: { x: number; y: number }[] = [];
+  rowSizes.forEach((count, r) => {
+    const localY = (r - (rows - 1) / 2) * ROW_UNIT;
+    for (let c = 0; c < count; c++) {
+      const localX = (c - (count - 1) / 2) * COL_UNIT;
+      localPositions.push({ x: localX, y: localY });
+    }
+  });
+
+  const projected = localPositions.map((p) => projectIso(p.x, p.y));
+  const xs = projected.map((p) => p.x);
+  const ys = projected.map((p) => p.y);
+  const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+
+  return projected.map((p) => ({ x: p.x - centerX, y: p.y - centerY }));
+}
+
+const MOCK_TRIANGLE = computeTrianglePositions(SUBJECT_SEEDS.length);
+const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
+  ...seed,
+  gridPos: MOCK_TRIANGLE[i],
+}));
+
 const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
   sm: { w: 168, h: 112 },
   md: { w: 228, h: 148 },
   lg: { w: 280, h: 182 },
 };
 
-// gridPos.x / gridPos.y are flat, pre-transform local pixel units. Running
-// them through ISO_MATRIX gives the actual on-screen pixel offset from the
-// canvas center — the same rotate/skew/scale applied to the cards and the
-// background grid — so a "row" (constant local y) lands parallel to the
-// grid lines instead of running flat/horizontal across the screen.
-function isoPos(localX: number, localY: number) {
-  const dx = ISO_MATRIX[0][0] * localX + ISO_MATRIX[0][1] * localY;
-  const dy = ISO_MATRIX[1][0] * localX + ISO_MATRIX[1][1] * localY;
+// gridPos.x / gridPos.y are already-projected, already-centered screen
+// pixel offsets from computeTrianglePositions above — just add them to the
+// canvas center.
+function isoPos(x: number, y: number) {
   return {
-    left: `calc(50% + ${dx}px)`,
-    top: `calc(50% + ${dy}px)`,
+    left: `calc(50% + ${x}px)`,
+    top: `calc(50% + ${y}px)`,
   };
 }
 
