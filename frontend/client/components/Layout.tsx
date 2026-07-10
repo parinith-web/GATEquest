@@ -91,9 +91,13 @@ const bottomItems = [
 function AppSidebar({
   mobileOpen,
   onClose,
+  collapsed,
+  onToggleCollapse,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const location = useLocation();
 
@@ -110,27 +114,67 @@ function AppSidebar({
       {/* Sidebar */}
       <aside
         className={[
-          "fixed lg:static inset-y-0 left-0 z-40 flex flex-col",
-          "w-[242px] shrink-0 bg-gq-sidebar border-r border-gq-border",
-          "transition-transform duration-300 lg:transition-none",
+          "fixed lg:static inset-y-0 left-0 z-40 flex flex-col group/sidebar",
+          "shrink-0 bg-gq-sidebar border-r border-gq-border",
+          "transition-[transform,width] duration-300 ease-in-out",
+          collapsed ? "lg:w-[76px]" : "lg:w-[242px]",
+          "w-[242px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
         {/* Brand */}
-        <div className="h-[65px] flex items-center px-6 border-b border-gq-border shrink-0 gap-3">
+        <div
+          className={[
+            "h-[65px] flex items-center border-b border-gq-border shrink-0 gap-3",
+            collapsed ? "lg:justify-center lg:px-0 px-6" : "px-6",
+          ].join(" ")}
+        >
           <img
             src="https://api.builder.io/api/v1/image/assets/TEMP/2d820a83d1d61eb1b70ca251f31eb0a04662f9ff?width=60"
             alt="GATEquest"
             className="w-7 h-7 shrink-0"
           />
-          <span className="font-jetbrains font-semibold text-[17px] tracking-[0.05em]">
+          <span
+            className={[
+              "font-jetbrains font-semibold text-[17px] tracking-[0.05em] whitespace-nowrap overflow-hidden",
+              collapsed ? "lg:hidden" : "",
+            ].join(" ")}
+          >
             <span className="text-[#E5E1E4]">GATE</span>
             <span className="text-gq-blue-accent">quest</span>
           </span>
         </div>
 
+        {/* Collapse toggle (desktop only) */}
+        <button
+          onClick={onToggleCollapse}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={[
+            "hidden lg:flex items-center justify-center absolute top-[22px] -right-3 z-10",
+            "w-6 h-6 rounded-full bg-gq-card border border-gq-border text-gq-text-muted",
+            "hover:text-white hover:border-gq-blue/50 transition-colors",
+          ].join(" ")}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            className={collapsed ? "rotate-180" : ""}
+          >
+            <path
+              d="M7.5 1.5L3 6L7.5 10.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
         {/* Main nav */}
-        <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto">
+        <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -138,17 +182,19 @@ function AppSidebar({
                 key={item.href}
                 to={item.href}
                 onClick={onClose}
+                title={collapsed ? item.label : undefined}
                 className={[
-                  "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium",
+                  "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
+                  collapsed ? "lg:justify-center lg:px-0" : "",
                   isActive
                     ? "bg-gq-active text-white"
                     : "text-gq-text-muted hover:text-white hover:bg-gq-card",
                 ].join(" ")}
               >
-                <span className={isActive ? "text-white" : "text-gq-text-muted"}>
+                <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
                   {item.icon}
                 </span>
-                {item.label}
+                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
               </Link>
             );
           })}
@@ -163,17 +209,19 @@ function AppSidebar({
                 key={item.href}
                 to={item.href}
                 onClick={onClose}
+                title={collapsed ? item.label : undefined}
                 className={[
-                  "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium",
+                  "flex items-center gap-3 px-3 py-[10px] rounded-[8px] transition-colors text-[14px] font-medium whitespace-nowrap",
+                  collapsed ? "lg:justify-center lg:px-0" : "",
                   isActive
                     ? "bg-gq-active text-white"
                     : "text-gq-text-muted hover:text-white hover:bg-gq-card",
                 ].join(" ")}
               >
-                <span className={isActive ? "text-white" : "text-gq-text-muted"}>
+                <span className={isActive ? "text-white shrink-0" : "text-gq-text-muted shrink-0"}>
                   {item.icon}
                 </span>
-                {item.label}
+                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
               </Link>
             );
           })}
@@ -187,7 +235,19 @@ function AppSidebar({
 
 export function Layout({ children, breadcrumb }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("gq-sidebar-collapsed") === "true";
+  });
   const location = useLocation();
+
+  const toggleCollapsed = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem("gq-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   const pageName =
     breadcrumb ??
@@ -201,6 +261,8 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
       <AppSidebar
         mobileOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleCollapsed}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
