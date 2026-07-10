@@ -297,7 +297,7 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
             edge. Slides with the sidebar as it collapses/expands. */}
         <button
           className="hidden lg:flex fixed z-50 items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white transition-[left,background-color,color] duration-300 ease-in-out"
-          style={{ top: 65 + 16, left: sidebarCollapsed ? 24 : 242 - 16 }}
+          style={{ top: 65 + 16, left: sidebarCollapsed ? 20 : 242 - 16 }}
           onClick={toggleCollapsed}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
