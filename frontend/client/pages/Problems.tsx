@@ -846,7 +846,7 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
 
   return (
     <div className="p-8">
-      <div className="flex flex-col xl:flex-row gap-6 max-w-[1206px] mx-auto">
+      <div className="flex flex-col xl:flex-row gap-6 w-full">
         {/* Left panel */}
         <div className="xl:w-[290px] shrink-0 flex flex-col gap-6">
           <LiveProgressWidget subjectLabel={BRANCH_LABEL[branch]} topic={selectedTopic} questions={allQuestions} />
@@ -922,7 +922,7 @@ export default function ProblemsPage() {
   return (
     <Layout>
       <div className="p-8">
-        <div className="flex flex-col xl:flex-row gap-6 max-w-[1206px] mx-auto">
+        <div className="flex flex-col xl:flex-row gap-6 w-full">
           {/* Left panel */}
           <div className="xl:w-[290px] shrink-0 flex flex-col gap-6">
             <ProgressWidget />
