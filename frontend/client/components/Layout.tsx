@@ -92,12 +92,10 @@ function AppSidebar({
   mobileOpen,
   onClose,
   collapsed,
-  onToggleCollapse,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
   collapsed: boolean;
-  onToggleCollapse: () => void;
 }) {
   const location = useLocation();
 
@@ -115,61 +113,30 @@ function AppSidebar({
       <aside
         className={[
           "fixed top-[65px] bottom-0 lg:static lg:inset-y-0 left-0 z-40 flex flex-col group/sidebar",
-          "shrink-0 bg-gq-sidebar border-r border-gq-border",
-          "transition-[transform,width] duration-300 ease-in-out",
-          collapsed ? "lg:w-[60px]" : "lg:w-[242px]",
-          "w-[242px]",
+          "shrink-0 bg-gq-sidebar",
+          "transition-[transform,width,border-width] duration-300 ease-in-out",
+          collapsed
+            ? "lg:w-0 lg:border-r-0 lg:overflow-hidden"
+            : "lg:w-[242px] lg:border-r lg:border-gq-border",
+          "w-[242px] border-r border-gq-border",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        {/* Sidebar top strip — a single toggle icon when collapsed, full header otherwise */}
-        <div
-          className={[
-            "h-[57px] flex items-center border-b border-gq-border shrink-0",
-            collapsed ? "justify-center px-0" : "justify-between px-4",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "text-[11px] font-semibold text-gq-text-muted uppercase tracking-wider whitespace-nowrap overflow-hidden",
-              collapsed ? "lg:hidden" : "",
-            ].join(" ")}
-          >
-            Menu
-          </span>
-
-          {/* Mobile close (X) — always available on mobile, regardless of desktop collapse state */}
+        {/* Mobile close (X) — only shown on mobile, floating over the top of the sidebar */}
+        <div className="h-[57px] flex items-center justify-end border-b border-gq-border shrink-0 px-4 lg:hidden">
           <button
             onClick={onClose}
             aria-label="Close sidebar"
-            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M2 2L14 14M14 2L2 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-
-          {/* Collapse / expand toggle (desktop only) — single panel icon, LeetCode-style */}
-          <button
-            onClick={onToggleCollapse}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg shrink-0 text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
-              <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
-          </button>
         </div>
 
-        {/* Main nav — hidden on desktop when collapsed; always visible on mobile */}
-        <nav
-          className={[
-            "flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden",
-            collapsed ? "lg:hidden" : "",
-          ].join(" ")}
-        >
+        {/* Main nav */}
+        <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -193,13 +160,8 @@ function AppSidebar({
           })}
         </nav>
 
-        {/* Bottom nav — hidden on desktop when collapsed; always visible on mobile */}
-        <div
-          className={[
-            "border-t border-gq-border px-3 py-4 flex flex-col gap-1 shrink-0",
-            collapsed ? "lg:hidden" : "",
-          ].join(" ")}
-        >
+        {/* Bottom nav */}
+        <div className="border-t border-gq-border px-3 py-4 flex flex-col gap-1 shrink-0">
           {bottomItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -268,6 +230,19 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
             </svg>
           </button>
 
+          {/* Desktop sidebar collapse/expand toggle — lives on the header line, always present */}
+          <button
+            className="hidden lg:flex items-center justify-center w-8 h-8 -ml-1 rounded-lg shrink-0 text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors"
+            onClick={toggleCollapsed}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="1.5" y="2.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" />
+              <line x1="6.75" y1="2.5" x2="6.75" y2="15.5" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
+          </button>
+
           {/* Brand — logo + name */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img
@@ -328,7 +303,6 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           mobileOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={toggleCollapsed}
         />
 
         {/* Page content */}
