@@ -46,25 +46,25 @@ const SUBJECT_SEEDS: SubjectSeed[] = [
     progress: 65,
     status: "in-progress",
     highlighted: true,
-    size: "lg",
+    size: "md",
   },
   {
     id: "operating-sys",
     name: "Operating Sys",
     status: "locked",
-    size: "sm",
+    size: "md",
   },
   {
     id: "compiler-design",
     name: "Compiler Design",
     status: "locked",
-    size: "sm",
+    size: "md",
   },
   {
     id: "databases",
     name: "Databases",
     status: "locked",
-    size: "sm",
+    size: "md",
   },
   {
     id: "digital-logic",
@@ -86,43 +86,49 @@ const SUBJECT_SEEDS: SubjectSeed[] = [
     id: "theory-of-comp",
     name: "Theory of Comp",
     status: "locked",
-    size: "sm",
+    size: "md",
   },
 ];
 
-// Full-screen matrix layout: arranges n items into an evenly-spaced grid of
-// rows/columns, returned as fractions (0..1) of the canvas so cards spread
-// across the entire section instead of clustering in the middle. Handles a
-// short last row by centering it rather than leaving it flush left.
-function computeMatrixPositions(n: number): { col: number; row: number }[] {
+// Pyramid layout: row 0 gets 1 card, row 1 gets 2, row 2 gets 3, row 3 gets
+// 4, and so on — each row centered under the full canvas width, so the
+// cards form a widening "reverse V" as you go down. If there aren't enough
+// items to fill a row to its target size, that final row just takes
+// whatever's left (still centered).
+function computeTrianglePositions(n: number): { col: number; row: number }[] {
   if (n <= 0) return [];
-  const cols = Math.max(2, Math.round(Math.sqrt(n * (16 / 9))));
-  const rows = Math.max(1, Math.ceil(n / cols));
+
+  const rowSizes: number[] = [];
+  let remaining = n;
+  let nextSize = 1;
+  while (remaining > 0) {
+    const take = Math.min(nextSize, remaining);
+    rowSizes.push(take);
+    remaining -= take;
+    nextSize += 1;
+  }
+
+  const rows = rowSizes.length;
   const marginX = 0.1;
-  const marginY = 0.18;
+  const marginY = 0.14;
 
   const positions: { col: number; row: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    const r = Math.floor(i / cols);
-    const c = i % cols;
-    const itemsInRow = Math.min(cols, n - r * cols);
-
-    const colFrac =
-      itemsInRow > 1
-        ? marginX + ((c + 0.5) / itemsInRow) * (1 - 2 * marginX)
-        : 0.5;
+  rowSizes.forEach((count, r) => {
     const rowFrac =
       rows > 1 ? marginY + ((r + 0.5) / rows) * (1 - 2 * marginY) : 0.5;
-
-    positions.push({ col: colFrac, row: rowFrac });
-  }
+    for (let c = 0; c < count; c++) {
+      const colFrac =
+        count > 1 ? marginX + ((c + 0.5) / count) * (1 - 2 * marginX) : 0.5;
+      positions.push({ col: colFrac, row: rowFrac });
+    }
+  });
   return positions;
 }
 
-const MOCK_MATRIX = computeMatrixPositions(SUBJECT_SEEDS.length);
+const MOCK_TRIANGLE = computeTrianglePositions(SUBJECT_SEEDS.length);
 const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
   ...seed,
-  gridPos: MOCK_MATRIX[i],
+  gridPos: MOCK_TRIANGLE[i],
 }));
 
 // ─── Isometric Card ──────────────────────────────────────────────────────────
@@ -375,11 +381,8 @@ const MobileSubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s:
 // ─── Live roadmap (CS / DA) ────────────────────────────────────────────────
 //
 // A live topic list has a variable length that comes from the DB, so it
-// shares the same computeMatrixPositions layout used for the mock SUBJECTS
-// above — an evenly-spaced, full-screen matrix rather than hand-authored
-// coordinates.
-
-const LIVE_CARD_SIZES: CardSize[] = ["md", "lg", "sm"];
+// shares the same computeTrianglePositions pyramid layout used for the mock
+// SUBJECTS above, with every card the same size.
 
 function useLiveTopics(branch: WiredBranch | null) {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
@@ -394,7 +397,7 @@ function useLiveTopics(branch: WiredBranch | null) {
         if (cancelled) return;
         const countByTopic = new Map(counts.map((c) => [c.Topic, c.Count]));
         const order = BRANCH_TOPIC_ORDER[branch];
-        const positions = computeMatrixPositions(order.length);
+        const positions = computeTrianglePositions(order.length);
 
         const built: Subject[] = order.map((topic, i) => ({
           id: topic,
@@ -402,7 +405,7 @@ function useLiveTopics(branch: WiredBranch | null) {
           topics: countByTopic.get(topic) ?? 0,
           status: "active",
           gridPos: positions[i],
-          size: LIVE_CARD_SIZES[i % LIVE_CARD_SIZES.length],
+          size: "md",
         }));
         setSubjects(built);
       })
