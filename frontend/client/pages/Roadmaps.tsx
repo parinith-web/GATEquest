@@ -13,44 +13,6 @@ import {
   type WiredBranch,
 } from "@/lib/gate-api";
 
-// ─── Activity Streak ─────────────────────────────────────────────────────────
-
-const WEEK_DAYS = ["S", "M", "T", "W", "T", "F", "S"];
-const WEEK_DATES = [1, 2, 3, 4, 5, 6, 7];
-const ACTIVE_DAYS = new Set([4, 5, 6]);
-const TODAY = 6;
-
-const ActivityStreak = () => (
-  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-sm p-5 min-w-[290px]">
-    <div className="flex items-center justify-between mb-5">
-      <h3 className="text-white font-semibold text-base">Activity Streak</h3>
-      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/[0.15] border border-amber-500/30">
-        <span className="text-sm leading-none">🔥</span>
-        <span className="text-amber-400 font-semibold text-sm">3 Days</span>
-      </div>
-    </div>
-    <div className="grid grid-cols-7 gap-0.5">
-      {WEEK_DAYS.map((day, i) => (
-        <div key={i} className="flex flex-col items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-medium">{day}</span>
-          <div
-            className={cn(
-              "w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all",
-              WEEK_DATES[i] === TODAY
-                ? "bg-blue-600 text-white ring-2 ring-blue-400/50"
-                : ACTIVE_DAYS.has(WEEK_DATES[i])
-                ? "border border-white/20 text-white"
-                : "text-zinc-600"
-            )}
-          >
-            {WEEK_DATES[i]}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 // ─── Subject data ─────────────────────────────────────────────────────────────
 
 type SubjectStatus = "completed" | "in-progress" | "active" | "locked";
@@ -451,10 +413,6 @@ export default function RoadmapsPage() {
   // Non-wired branches (ECE, EE, CE, ME, Other) keep the exact original
   // mockup below, unchanged.
   const subjects = wired ? liveSubjects : SUBJECTS;
-  const pathwayTitle = wired ? `${BRANCH_LABEL[wired]} Pathway` : "CS Pathway";
-  const pathwayBody = wired
-    ? `Master the ${BRANCH_LABEL[wired]} syllabus, topic by topic, using real GATE questions from your imported question bank.`
-    : "Master the syllabus node by node. Track your progress across core engineering domains.";
 
   return (
     <Layout>
@@ -479,20 +437,6 @@ export default function RoadmapsPage() {
               "radial-gradient(ellipse 80% 70% at 50% 60%, transparent 0%, rgba(14,14,14,0.55) 65%, rgba(14,14,14,0.92) 100%)",
           }}
         />
-
-        {/* ── Top info row ── */}
-        <div className="relative z-10 flex flex-col xl:flex-row justify-between items-start gap-4 mb-8">
-          {/* Pathway card */}
-          <div className="rounded-2xl border border-white/[0.09] bg-white/[0.04] backdrop-blur-sm p-6 max-w-[340px]">
-            <h1 className="text-[22px] font-bold text-white mb-2 leading-snug">
-              {pathwayTitle}
-            </h1>
-            <p className="text-zinc-400 text-sm leading-relaxed">{pathwayBody}</p>
-          </div>
-
-          {/* Activity streak */}
-          <ActivityStreak />
-        </div>
 
         {wired && !subjects && !liveError && (
           <div className="relative z-10 text-zinc-500 text-sm py-8">Loading topics…</div>
