@@ -302,7 +302,12 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           }}
         >
           <button
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white opacity-0 pointer-events-none group-hover/edge:opacity-100 group-hover/edge:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto transition-[left,opacity,background-color,color] duration-300 ease-in-out"
+            className={[
+              "flex items-center justify-center w-8 h-8 rounded-full bg-gq-blue/10 text-gq-blue hover:bg-gq-blue/20 hover:text-white transition-[left,opacity,background-color,color] duration-300 ease-in-out",
+              sidebarCollapsed
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none group-hover/edge:opacity-100 group-hover/edge:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto",
+            ].join(" ")}
             style={{ position: "fixed", top: 65 + 16, left: sidebarCollapsed ? 20 : 242 - 16 }}
             onClick={toggleCollapsed}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
