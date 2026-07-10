@@ -336,7 +336,7 @@ function TopicFilters() {
               starred ? "" : "hover:bg-gq-nav-active/20"
             }`}
           >
-            <div className="flex items-center gap-2.5 pl-0.5 min-w-0">
+            <div className="flex items-center gap-2.5 pl-0.5 min-w-0 flex-1">
               <div className="flex items-center justify-center h-6 shrink-0">
                 {starred ? <IconStar /> : <IconFolder />}
               </div>
@@ -349,11 +349,11 @@ function TopicFilters() {
               </span>
             </div>
             {starred ? (
-              <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0">
+              <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0 ml-3">
                 <span className="text-gq-blue text-[10px] font-bold leading-6 whitespace-nowrap">{count}</span>
               </div>
             ) : (
-              <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap">{count}</span>
+              <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap ml-3">{count}</span>
             )}
           </div>
         ))}
@@ -659,7 +659,7 @@ function LiveTopicFilters({
               onClick={() => onSelect(isSelected ? null : Topic)}
               className={`flex items-center justify-between px-2 py-2 rounded-sm cursor-pointer transition-colors hover:bg-gq-nav-active/20`}
             >
-              <div className="flex items-center gap-2.5 pl-0.5 min-w-0">
+              <div className="flex items-center gap-2.5 pl-0.5 min-w-0 flex-1">
                 <div className="flex items-center justify-center h-6 shrink-0">
                   {isSelected ? <IconStar /> : <IconFolder />}
                 </div>
@@ -670,11 +670,11 @@ function LiveTopicFilters({
                 </span>
               </div>
               {isSelected ? (
-                <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0">
+                <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0 ml-3">
                   <span className="text-gq-blue text-[10px] font-bold leading-6 whitespace-nowrap">{Count}</span>
                 </div>
               ) : (
-                <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap">{Count}</span>
+                <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap ml-3">{Count}</span>
               )}
             </div>
           );
@@ -809,13 +809,11 @@ function LivePagination({
 
 // ─── Sorting ───────────────────────────────────────────────────────────────
 
-type SortOption = "year_desc" | "year_asc" | "type_mcq" | "type_nat";
+type SortOption = "year_desc" | "year_asc";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "year_desc", label: "Year: Newest first" },
   { value: "year_asc", label: "Year: Oldest first" },
-  { value: "type_mcq", label: "Type: MCQ first" },
-  { value: "type_nat", label: "Type: NAT first" },
 ];
 
 function sortQuestions(questions: QuestionListItem[], sortBy: SortOption): QuestionListItem[] {
@@ -827,14 +825,67 @@ function sortQuestions(questions: QuestionListItem[], sortBy: SortOption): Quest
     case "year_asc":
       arr.sort((a, b) => (a.examYear ?? Infinity) - (b.examYear ?? Infinity));
       break;
-    case "type_mcq":
-      arr.sort((a, b) => (a.type === "nat" ? 1 : 0) - (b.type === "nat" ? 1 : 0));
-      break;
-    case "type_nat":
-      arr.sort((a, b) => (a.type === "nat" ? 0 : 1) - (b.type === "nat" ? 0 : 1));
-      break;
   }
   return arr;
+}
+
+// ─── Type Filter ───────────────────────────────────────────────────────────
+
+type TypeFilter = "all" | "mcq" | "msq" | "nat";
+
+const TYPE_FILTER_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "All types" },
+  { value: "mcq", label: "MCQ" },
+  { value: "msq", label: "MSQ" },
+  { value: "nat", label: "NAT" },
+];
+
+function TypeFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: TypeFilter;
+  onChange: (v: TypeFilter) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = TYPE_FILTER_OPTIONS.find((o) => o.value === value);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2.5 px-4 py-[7px] border border-gq-border rounded-[4px] text-gq-muted text-base hover:border-gq-blue/50 transition-colors"
+      >
+        <span className="text-gq-text-muted text-sm">Type:</span>
+        <span className="whitespace-nowrap">{current?.label ?? "All types"}</span>
+        <IconChevronDown />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-[160px] rounded-[6px] border border-gq-border bg-gq-card shadow-lg z-50 overflow-hidden">
+            {TYPE_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                  opt.value === value
+                    ? "bg-gq-blue/20 text-gq-blue"
+                    : "text-gq-muted hover:bg-gq-nav-active/20 hover:text-gq-text"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function SortDropdown({
@@ -896,6 +947,8 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
   const [topics, setTopics] = useState<TopicCount[]>([]);
   const [allQuestions, setAllQuestions] = useState<QuestionListItem[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("year_desc");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -914,10 +967,26 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
       .finally(() => setLoading(false));
   }, [subject, selectedTopic]);
 
-  const sorted = useMemo(() => sortQuestions(allQuestions, sortBy), [allQuestions, sortBy]);
+  const filtered = useMemo(() => {
+    let result = allQuestions;
+    if (typeFilter !== "all") {
+      result = result.filter((q) => q.type === typeFilter);
+    }
+    const query = search.trim().toLowerCase();
+    if (query) {
+      result = result.filter((q) => q.questionText.toLowerCase().includes(query));
+    }
+    return result;
+  }, [allQuestions, typeFilter, search]);
+
+  const sorted = useMemo(() => sortQuestions(filtered, sortBy), [filtered, sortBy]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pageItems = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(0);
+  }, [typeFilter, search]);
 
   return (
     <div className="p-8">
@@ -936,14 +1005,32 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
 
         {/* Problems section */}
         <div className="flex-1 min-w-0 flex flex-col gap-4 pb-12">
-          <div className="flex items-center justify-end gap-4 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
-            <SortDropdown
-              value={sortBy}
-              onChange={(v) => {
-                setSortBy(v);
-                setPage(0);
-              }}
-            />
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
+            {/* Compact search */}
+            <div className="relative w-full sm:w-[220px]">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <IconSearch size={13} />
+              </div>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search questions..."
+                className="w-full bg-gq-bg border border-gq-border rounded-[4px] py-[7px] pl-9 pr-3 text-sm text-gq-dim focus:outline-none focus:border-gq-blue/50 transition-colors"
+              />
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <TypeFilterDropdown value={typeFilter} onChange={setTypeFilter} />
+              <SortDropdown
+                value={sortBy}
+                onChange={(v) => {
+                  setSortBy(v);
+                  setPage(0);
+                }}
+              />
+            </div>
           </div>
 
           {error && (
