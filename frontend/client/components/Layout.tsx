@@ -106,7 +106,7 @@ function AppSidebar({
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
+          className="fixed top-[65px] left-0 right-0 bottom-0 bg-black/60 z-30 lg:hidden"
           onClick={onClose}
         />
       )}
@@ -114,7 +114,7 @@ function AppSidebar({
       {/* Sidebar */}
       <aside
         className={[
-          "fixed lg:static inset-y-0 left-0 z-40 flex flex-col group/sidebar",
+          "fixed top-[65px] bottom-0 lg:static lg:inset-y-0 left-0 z-40 flex flex-col group/sidebar",
           "shrink-0 bg-gq-sidebar border-r border-gq-border",
           "transition-[transform,width] duration-300 ease-in-out",
           collapsed ? "lg:w-[76px]" : "lg:w-[242px]",
@@ -122,56 +122,63 @@ function AppSidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
       >
-        {/* Brand */}
+        {/* Sidebar top strip — collapse toggle only, brand lives in the header */}
         <div
           className={[
-            "h-[65px] flex items-center border-b border-gq-border shrink-0 gap-3",
-            collapsed ? "lg:justify-center lg:px-0 px-6" : "px-6",
+            "h-[57px] flex items-center border-b border-gq-border shrink-0",
+            collapsed ? "justify-center px-0" : "justify-between px-4",
           ].join(" ")}
         >
-          <img
-            src="https://api.builder.io/api/v1/image/assets/TEMP/2d820a83d1d61eb1b70ca251f31eb0a04662f9ff?width=60"
-            alt="GATEquest"
-            className="w-7 h-7 shrink-0"
-          />
           <span
             className={[
-              "font-jetbrains font-semibold text-[17px] tracking-[0.05em] whitespace-nowrap overflow-hidden",
+              "text-[11px] font-semibold text-gq-text-muted uppercase tracking-wider whitespace-nowrap overflow-hidden",
               collapsed ? "lg:hidden" : "",
             ].join(" ")}
           >
-            <span className="text-[#E5E1E4]">GATE</span>
-            <span className="text-gq-blue-accent">quest</span>
+            Menu
           </span>
-        </div>
 
-        {/* Collapse toggle (desktop only) */}
-        <button
-          onClick={onToggleCollapse}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={[
-            "hidden lg:flex items-center justify-center absolute top-[22px] -right-3 z-10",
-            "w-6 h-6 rounded-full bg-gq-card border border-gq-border text-gq-text-muted",
-            "hover:text-white hover:border-gq-blue/50 transition-colors",
-          ].join(" ")}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            className={collapsed ? "rotate-180" : ""}
+          {/* Mobile close (X) */}
+          <button
+            onClick={onClose}
+            aria-label="Close sidebar"
+            className={[
+              "lg:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors",
+              collapsed ? "hidden" : "",
+            ].join(" ")}
           >
-            <path
-              d="M7.5 1.5L3 6L7.5 10.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 2L14 14M14 2L2 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          {/* Collapse toggle (desktop only) */}
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={[
+              "hidden lg:flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
+              "text-gq-text-muted hover:text-white hover:bg-gq-card transition-colors",
+            ].join(" ")}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 12 12"
+              fill="none"
+              className={["transition-transform duration-300", collapsed ? "rotate-180" : ""].join(" ")}
+            >
+              <path
+                d="M7.5 1.5L3 6L7.5 10.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
 
         {/* Main nav */}
         <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto overflow-x-hidden">
@@ -257,71 +264,86 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
     "Page";
 
   return (
-    <div className="flex h-screen bg-gq-bg overflow-hidden font-inter">
-      <AppSidebar
-        mobileOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={toggleCollapsed}
-      />
+    <div className="flex flex-col h-screen bg-gq-bg overflow-hidden font-inter">
+      {/* Top header — full width, independent of the sidebar */}
+      <header className="h-[65px] shrink-0 bg-gq-header border-b border-gq-border flex items-center px-4 lg:px-6 justify-between gap-4 z-20">
+        <div className="flex items-center gap-4 min-w-0">
+          {/* Mobile hamburger */}
+          <button
+            className="lg:hidden text-gq-text-muted hover:text-white transition-colors shrink-0"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top header */}
-        <header className="h-[65px] shrink-0 bg-gq-header border-b border-gq-border flex items-center px-[34px] justify-between gap-4">
-          <div className="flex items-center gap-4">
-            {/* Mobile hamburger */}
-            <button
-              className="lg:hidden text-gq-text-muted hover:text-white transition-colors"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          {/* Brand — logo + name */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <img
+              src="https://api.builder.io/api/v1/image/assets/TEMP/2d820a83d1d61eb1b70ca251f31eb0a04662f9ff?width=60"
+              alt="GATEquest"
+              className="w-7 h-7 shrink-0"
+            />
+            <span className="font-jetbrains font-semibold text-[17px] tracking-[0.05em] whitespace-nowrap hidden sm:inline">
+              <span className="text-[#E5E1E4]">GATE</span>
+              <span className="text-gq-blue-accent">quest</span>
+            </span>
+          </Link>
+
+          {/* Breadcrumb */}
+          <div className="hidden md:flex items-center gap-2 text-[14px] pl-4 ml-1 border-l border-gq-border min-w-0">
+            <span className="text-gq-text-muted whitespace-nowrap">Dashboards /</span>
+            <span className="text-white font-medium truncate">{pageName}</span>
+          </div>
+        </div>
+
+        {/* Right side */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="hidden sm:flex relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <svg width="14" height="14" viewBox="0 0 15 20" fill="none">
+                <path d="M12.45 13.5L7.725 8.775C7.35 9.075 6.91875 9.3125 6.43125 9.4875C5.94375 9.6625 5.425 9.75 4.875 9.75C3.5125 9.75 2.35938 9.27813 1.41562 8.33438C0.471875 7.39063 0 6.2375 0 4.875C0 3.5125 0.471875 2.35938 1.41562 1.41562C2.35938 0.471875 3.5125 0 4.875 0C6.2375 0 7.39063 0.471875 8.33438 1.41562C9.27813 2.35938 9.75 3.5125 9.75 4.875C9.75 5.425 9.6625 5.94375 9.4875 6.43125C9.3125 6.91875 9.075 7.35 8.775 7.725L13.5 12.45L12.45 13.5Z" fill="#6B7280" />
               </svg>
-            </button>
-
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-[14px]">
-              <span className="text-gq-text-muted">Dashboards /</span>
-              <span className="text-white font-medium">{pageName}</span>
             </div>
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-[200px] bg-[#1C1B1B] border border-[#424754] rounded-full pl-9 pr-4 py-[7px] text-sm text-gq-text-muted placeholder-gq-text-muted outline-none focus:border-gq-blue/50 transition-colors"
+            />
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <svg width="14" height="14" viewBox="0 0 15 20" fill="none">
-                  <path d="M12.45 13.5L7.725 8.775C7.35 9.075 6.91875 9.3125 6.43125 9.4875C5.94375 9.6625 5.425 9.75 4.875 9.75C3.5125 9.75 2.35938 9.27813 1.41562 8.33438C0.471875 7.39063 0 6.2375 0 4.875C0 3.5125 0.471875 2.35938 1.41562 1.41562C2.35938 0.471875 3.5125 0 4.875 0C6.2375 0 7.39063 0.471875 8.33438 1.41562C9.27813 2.35938 9.75 3.5125 9.75 4.875C9.75 5.425 9.6625 5.94375 9.4875 6.43125C9.3125 6.91875 9.075 7.35 8.775 7.725L13.5 12.45L12.45 13.5Z" fill="#6B7280" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-[200px] bg-[#1C1B1B] border border-[#424754] rounded-full pl-9 pr-4 py-[7px] text-sm text-gq-text-muted placeholder-gq-text-muted outline-none focus:border-gq-blue/50 transition-colors"
-              />
-            </div>
-
-            {/* Bell */}
-            <div className="relative cursor-pointer">
-              <svg width="17" height="22" viewBox="0 0 17 22" fill="none">
-                <path d="M0 17V15H2V8C2 6.61667 2.41667 5.3875 3.25 4.3125C4.08333 3.2375 5.16667 2.53333 6.5 2.2V1.5C6.5 1.08333 6.64583 0.729167 6.9375 0.4375C7.22917 0.145833 7.58333 0 8 0C8.41667 0 8.77083 0.145833 9.0625 0.4375C9.35417 0.729167 9.5 1.08333 9.5 1.5V2.2C10.8333 2.53333 11.9167 3.2375 12.75 4.3125C13.5833 5.3875 14 6.61667 14 8V15H16V17H0ZM8 20C7.45 20 6.97917 19.8042 6.5875 19.4125C6.19583 19.0208 6 18.55 6 18H10C10 18.55 9.80417 19.0208 9.4125 19.4125C9.02083 19.8042 8.55 20 8 20ZM4 15H12V8C12 6.9 11.6083 5.95833 10.825 5.175C10.0417 4.39167 9.1 4 8 4C6.9 4 5.95833 4.39167 5.175 5.175C4.39167 5.95833 4 6.9 4 8V15Z" fill="#8C909F" />
-              </svg>
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gq-green rounded-full" />
-            </div>
-
-            {/* Avatar */}
-            <div className="w-[34px] h-[34px] rounded-xl border border-black bg-[#0E0E0E] overflow-hidden shrink-0">
-              <img
-                src="https://api.builder.io/api/v1/image/assets/TEMP/42ef722eebd41d59b9df3e9410401cb989623cbf?width=82"
-                alt="User avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          {/* Bell */}
+          <div className="relative cursor-pointer">
+            <svg width="17" height="22" viewBox="0 0 17 22" fill="none">
+              <path d="M0 17V15H2V8C2 6.61667 2.41667 5.3875 3.25 4.3125C4.08333 3.2375 5.16667 2.53333 6.5 2.2V1.5C6.5 1.08333 6.64583 0.729167 6.9375 0.4375C7.22917 0.145833 7.58333 0 8 0C8.41667 0 8.77083 0.145833 9.0625 0.4375C9.35417 0.729167 9.5 1.08333 9.5 1.5V2.2C10.8333 2.53333 11.9167 3.2375 12.75 4.3125C13.5833 5.3875 14 6.61667 14 8V15H16V17H0ZM8 20C7.45 20 6.97917 19.8042 6.5875 19.4125C6.19583 19.0208 6 18.55 6 18H10C10 18.55 9.80417 19.0208 9.4125 19.4125C9.02083 19.8042 8.55 20 8 20ZM4 15H12V8C12 6.9 11.6083 5.95833 10.825 5.175C10.0417 4.39167 9.1 4 8 4C6.9 4 5.95833 4.39167 5.175 5.175C4.39167 5.95833 4 6.9 4 8V15Z" fill="#8C909F" />
+            </svg>
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gq-green rounded-full" />
           </div>
-        </header>
+
+          {/* Avatar */}
+          <div className="w-[34px] h-[34px] rounded-xl border border-black bg-[#0E0E0E] overflow-hidden shrink-0">
+            <img
+              src="https://api.builder.io/api/v1/image/assets/TEMP/42ef722eebd41d59b9df3e9410401cb989623cbf?width=82"
+              alt="User avatar"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* Body — sidebar + page content, below the header */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <AppSidebar
+          mobileOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleCollapsed}
+        />
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gq-bg">
+        <main className="flex-1 overflow-y-auto bg-gq-bg min-w-0">
           {children}
         </main>
       </div>
