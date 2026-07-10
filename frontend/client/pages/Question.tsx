@@ -7,6 +7,7 @@ import {
   fetchQuestion,
   type Question as ApiQuestion,
 } from "@/lib/gate-api";
+import { recordAttempt } from "@/lib/profile-api";
 
 const QUESTION_TEXT =
   "Consider three processes P1, P2, and P3, which arrive at time t=0 with CPU burst times of 20, 4, and 4 ms respectively. If the scheduler uses Round Robin scheduling with a time quantum of 5ms, what is the average turnaround time?";
@@ -523,8 +524,8 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
     });
   };
 
-  const isCorrect = (() => {
-    if (!question || !submitted) return null;
+  const computeIsCorrect = (): boolean => {
+    if (!question) return false;
     if (question.Type === "nat") {
       const given = parseFloat(natInput);
       const target = parseFloat(question.CorrectAnswer ?? "");
@@ -536,7 +537,8 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
     if (correctSet.size !== selected.size) return false;
     for (const s of selected) if (!correctSet.has(s)) return false;
     return true;
-  })();
+  };
+  const isCorrect = submitted ? computeIsCorrect() : null;
 
   if (error) {
     return (
@@ -722,7 +724,16 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
               >
                 <div />
                 <button
-                  onClick={() => canSubmit && setSubmitted(true)}
+                  onClick={() => {
+                    if (!canSubmit) return;
+                    setSubmitted(true);
+                    if (question) {
+                      recordAttempt(question.ID, computeIsCorrect()).catch(() => {
+                        // Non-fatal: the user already sees their result;
+                        // this only feeds the profile page's activity map.
+                      });
+                    }
+                  }}
                   disabled={!canSubmit && !submitted}
                   className="relative flex items-center justify-center px-8 py-[15px] rounded-[2.844px] overflow-hidden transition-opacity hover:opacity-90 active:opacity-80"
                   style={{

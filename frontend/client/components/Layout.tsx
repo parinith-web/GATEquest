@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/lib/auth-context";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -202,6 +203,7 @@ function AppSidebar({
 // ── Layout wrapper ────────────────────────────────────────────────────────────
 
 export function Layout({ children, breadcrumb }: LayoutProps) {
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -283,13 +285,22 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           </div>
 
           {/* Avatar */}
-          <div className="w-[34px] h-[34px] rounded-xl border border-black bg-[#0E0E0E] overflow-hidden shrink-0">
-            <img
-              src="https://api.builder.io/api/v1/image/assets/TEMP/42ef722eebd41d59b9df3e9410401cb989623cbf?width=82"
-              alt="User avatar"
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <Link
+            to="/profile"
+            className="w-[34px] h-[34px] rounded-xl border border-black bg-[#0E0E0E] overflow-hidden shrink-0"
+          >
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt="User avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[13px] font-bold text-gq-text-secondary">
+                {(user?.name || user?.email || "?").charAt(0).toUpperCase()}
+              </div>
+            )}
+          </Link>
         </div>
       </header>
 

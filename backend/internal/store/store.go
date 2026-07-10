@@ -198,6 +198,23 @@ func (s *Store) loadCredentials(ctx context.Context, userID uuid.UUID) ([]webaut
 	return creds, rows.Err()
 }
 
+// UpdateAvatar sets a user's avatar_url — either a plain image URL (e.g.
+// the one Google supplied at signup) or a "data:image/...;base64,..."
+// data URI when the user uploads their own picture from the profile
+// page. Storing the data URI directly in Postgres avoids needing any
+// object-storage/CDN setup; avatar_url is TEXT with no length cap.
+func (s *Store) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarURL string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE users SET avatar_url = $1 WHERE id = $2`, avatarURL, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // LinkGoogleAccount attaches a Google subject ID to an existing user
 // (e.g. one that was originally created via passkey registration and is
 // now also signing in with Google using the same email).

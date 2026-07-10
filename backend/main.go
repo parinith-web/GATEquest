@@ -107,6 +107,14 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"message":"pong","email":"` + u.Email + `"}`))
 		})
+
+		// Profile: avatar updates and the activity map / recent-history feed.
+		r.Post("/api/profile/avatar", apiHandlers.UpdateAvatar)
+		r.Get("/api/profile/activity", apiHandlers.GetActivity)
+
+		// Records a question submission for activity tracking (see
+		// api.RecordAttempt doc comment — grading itself stays client-side).
+		r.Post("/api/questions/{id}/attempt", apiHandlers.RecordAttempt)
 	})
 
 	// Question bank: public read-only endpoints, no auth required for

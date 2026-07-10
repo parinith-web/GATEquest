@@ -1,12 +1,36 @@
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
+import { useAuth } from "@/lib/auth-context";
+import {
+  fetchProfileActivity,
+  updateAvatar,
+  type HeatmapDay,
+  type HistoryItem,
+} from "@/lib/profile-api";
+import { fileToAvatarDataURL } from "@/lib/image";
 
-// ── Heatmap data generator ───────────────────────────────────────────────────
-function lcgRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 0x100000000;
-  };
+// ── Heatmap helpers ──────────────────────────────────────────────────────────
+
+// Buckets a raw "attempts that day" count into one of 5 shading levels,
+// matching the 5-step HEAT_COLORS legend below.
+function levelForCount(count: number): number {
+  if (count <= 0) return 0;
+  if (count <= 2) return 1;
+  if (count <= 4) return 2;
+  if (count <= 6) return 3;
+  return 4;
+}
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "JUST NOW";
+  if (mins < 60) return `${mins} MIN${mins === 1 ? "" : "S"} AGO`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} HOUR${hours === 1 ? "" : "S"} AGO`;
+  const days = Math.floor(hours / 24);
+  return `${days} DAY${days === 1 ? "" : "S"} AGO`;
 }
 
 const HEAT_COLORS = [
@@ -17,26 +41,16 @@ const HEAT_COLORS = [
   "rgba(136,179,254,0.60)",     // 4 = bright
 ];
 
-function generateHeatmap(): number[] {
-  const rand = lcgRandom(0xDEADBEEF);
-  const weights = [0.15, 0.20, 0.28, 0.22, 0.15];
-  const cumulative = weights.reduce<number[]>((acc, w, i) => {
-    acc.push((acc[i - 1] ?? 0) + w);
-    return acc;
-  }, []);
-
-  return Array.from({ length: 7 * 52 }, () => {
-    const r = rand();
-    return cumulative.findIndex((c) => r < c);
-  });
-}
-
-const heatmapData = generateHeatmap();
-const MONTHS = ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May"];
-
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function UserHeader() {
+interface UserHeaderProps {
+  name: string;
+  avatarUrl: string;
+  uploading: boolean;
+  onPickAvatar: () => void;
+}
+
+function UserHeader({ name, avatarUrl, uploading, onPickAvatar }: UserHeaderProps) {
   const xp = 12450;
   const xpMax = 15000;
   const pct = (xp / xpMax) * 100;
@@ -48,16 +62,37 @@ function UserHeader() {
 
       {/* Left: avatar + identity */}
       <div className="flex items-center gap-6">
-        <div className="w-24 h-24 rounded-[36px] bg-[#2A2A2A] overflow-hidden border-2 border-black flex-shrink-0">
-          <img
-            src="https://api.builder.io/api/v1/image/assets/TEMP/fa6924b8a1c533a410f874ec221bd17ca8ea2911?width=240"
-            alt="Parinith_red avatar"
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={onPickAvatar}
+          disabled={uploading}
+          className="group relative w-24 h-24 rounded-[36px] bg-[#2A2A2A] overflow-hidden border-2 border-black flex-shrink-0 cursor-pointer"
+          title="Change profile picture"
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`${name} avatar`}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gq-text-secondary">
+              {name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div
+            className={`absolute inset-0 flex items-center justify-center bg-black/60 transition-opacity ${
+              uploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white text-center px-1">
+              {uploading ? "Uploading…" : "Change"}
+            </span>
+          </div>
+        </button>
         <div className="flex flex-col gap-1">
           <span className="text-gq-accent text-[22px] font-bold leading-none tracking-tight">
-            Parinith_red
+            {name}
           </span>
           <div className="flex flex-wrap items-center gap-3 mt-1">
             <div className="px-3 py-1 bg-gq-rank-bg rounded-[2px]">
@@ -94,7 +129,33 @@ function UserHeader() {
   );
 }
 
-function ActivityMap() {
+interface ActivityMapProps {
+  heatmap: HeatmapDay[];
+  totalContributions: number;
+}
+
+function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
+  const weekCount = Math.max(1, Math.ceil(heatmap.length / 7));
+
+  // Label the first column of each new month, derived from the actual
+  // dates rather than a hardcoded 12-month list.
+  const monthLabels: { col: number; label: string }[] = [];
+  {
+    let lastMonth = "";
+    heatmap.forEach((d, i) => {
+      const col = Math.floor(i / 7);
+      const date = new Date(`${d.date}T00:00:00Z`);
+      const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+      if (monthKey !== lastMonth && date.getUTCDate() <= 7) {
+        lastMonth = monthKey;
+        monthLabels.push({
+          col,
+          label: date.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
+        });
+      }
+    });
+  }
+
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
       {/* Header */}
@@ -106,50 +167,64 @@ function ActivityMap() {
           <span className="text-base text-gq-text-primary">Activity Map</span>
         </div>
         <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
-          NODE_UPTIME: 365 DAYS
+          NODE_UPTIME: {heatmap.length} DAYS
         </span>
       </div>
 
       {/* Month labels */}
       <div className="flex flex-col gap-2">
-        <div className="flex justify-between px-0">
-          {MONTHS.map((m) => (
-            <span key={m} className="font-mono text-xs text-gq-text-secondary flex-1 text-center first:text-left last:text-right">
-              {m}
+        <div
+          className="grid text-left"
+          style={{ gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))` }}
+        >
+          {monthLabels.map(({ col, label }) => (
+            <span
+              key={`${col}-${label}`}
+              className="font-mono text-xs text-gq-text-secondary"
+              style={{ gridColumn: col + 1 }}
+            >
+              {label}
             </span>
           ))}
         </div>
 
         {/* Heatmap grid */}
-        <div
-          className="grid gap-[3px] w-full"
-          style={{
-            gridTemplateColumns: "repeat(52, minmax(0, 1fr))",
-            gridTemplateRows: "repeat(7, 1fr)",
-          }}
-        >
-          {heatmapData.map((level, i) => {
-            const col = Math.floor(i / 7) + 1;
-            const row = (i % 7) + 1;
-            return (
-              <div
-                key={i}
-                className="aspect-square rounded-[2px]"
-                style={{
-                  background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
-                  gridColumn: col,
-                  gridRow: row,
-                }}
-                title={`Level ${level}`}
-              />
-            );
-          })}
-        </div>
+        {heatmap.length === 0 ? (
+          <div className="py-10 text-center text-sm text-gq-text-secondary">
+            No activity yet — solve a question to light up the map.
+          </div>
+        ) : (
+          <div
+            className="grid gap-[3px] w-full"
+            style={{
+              gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))`,
+              gridTemplateRows: "repeat(7, 1fr)",
+            }}
+          >
+            {heatmap.map((d, i) => {
+              const col = Math.floor(i / 7) + 1;
+              const row = (i % 7) + 1;
+              const level = levelForCount(d.count);
+              return (
+                <div
+                  key={d.date}
+                  className="aspect-square rounded-[2px]"
+                  style={{
+                    background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
+                    gridColumn: col,
+                    gridRow: row,
+                  }}
+                  title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-gq-border/30">
           <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
-            807 contributions in the last year
+            {totalContributions} contribution{totalContributions === 1 ? "" : "s"} in the last year
           </span>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-gq-text-secondary mr-1">Less</span>
@@ -328,82 +403,64 @@ function Badges() {
   );
 }
 
-function UplinkFeed() {
-  const activities = [
-    {
-      color: "#ADC6FF",
-      title: "Solved Dijkstra's Shortest Path",
-      section: "ALGORITHMS_SEC_4",
-      value: "+45XP",
-      valueColor: "#ADC6FF",
-      time: "2 HOURS AGO",
-    },
-    {
-      color: "#C0C1FF",
-      title: "Earned Binary Search Badge",
-      section: "COLLECTION_UPDATED",
-      value: "UNLOCK",
-      valueColor: "#C0C1FF",
-      time: "5 HOURS AGO",
-    },
-    {
-      color: "#ADC6FF",
-      title: 'Completed "Virtual Memory" Module',
-      section: "OPERATING_SYSTEMS",
-      value: "+120XP",
-      valueColor: "#ADC6FF",
-      time: "1 DAY AGO",
-    },
-    {
-      color: "#FFB4AB",
-      title: "Defeated in Arena Challenge #12",
-      section: "PVP_INSTANCE",
-      value: "-10XP",
-      valueColor: "#FFB4AB",
-      time: "1 DAY AGO",
-    },
-  ];
+interface HistoryProps {
+  history: HistoryItem[];
+}
 
+function History({ history }: HistoryProps) {
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
       <div className="flex items-center gap-2 border-b border-gq-border pb-3">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
           <path d="M9 18C6.7 18 4.69583 17.2375 2.9875 15.7125C1.27917 14.1875 0.3 12.2833 0.05 10H2.1C2.33333 11.7333 3.10417 13.1667 4.4125 14.3C5.72083 15.4333 7.25 16 9 16C10.95 16 12.6042 15.3208 13.9625 13.9625C15.3208 12.6042 16 10.95 16 9C16 7.05 15.3208 5.39583 13.9625 4.0375C12.6042 2.67917 10.95 2 9 2C7.85 2 6.775 2.26667 5.775 2.8C4.775 3.33333 3.93333 4.06667 3.25 5H6V7H0V1H2V3.35C2.85 2.28333 3.8875 1.45833 5.1125 0.875C6.3375 0.291667 7.63333 0 9 0C10.25 0 11.4208 0.2375 12.5125 0.7125C13.6042 1.1875 14.5542 1.82917 15.3625 2.6375C16.1708 3.44583 16.8125 4.39583 17.2875 5.4875C17.7625 6.57917 18 7.75 18 9C18 10.25 17.7625 11.4208 17.2875 12.5125C16.8125 13.6042 16.1708 14.5542 15.3625 15.3625C14.5542 16.1708 13.6042 16.8125 12.5125 17.2875C11.4208 17.7625 10.25 18 9 18ZM11.8 13.2L8 9.4V4H10V8.6L13.2 11.8L11.8 13.2Z" fill="#ADC6FF"/>
         </svg>
-        <span className="text-base text-gq-text-primary">Uplink Feed</span>
+        <span className="text-base text-gq-text-primary">History</span>
+        <span className="font-mono text-xs text-gq-text-secondary ml-auto hidden sm:block">
+          LAST 7 DAYS
+        </span>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {activities.map((a, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between py-3 px-3 border-b border-[rgba(66,71,84,0.30)] last:border-b-0"
-          >
-            <div className="flex items-center gap-4 min-w-0">
-              <div
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: a.color }}
-              />
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm text-gq-text-primary truncate">{a.title}</span>
-                <span className="font-mono text-xs text-gq-text-secondary tracking-tight uppercase mt-0.5">
-                  {a.section}
+      {history.length === 0 ? (
+        <div className="py-10 text-center text-sm text-gq-text-secondary">
+          No questions solved in the past week yet — go pick one up in Problems.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {history.map((item) => (
+            <Link
+              key={item.questionId}
+              to={`/question/${item.questionId}`}
+              className="flex items-center justify-between py-3 px-3 border-b border-[rgba(66,71,84,0.30)] last:border-b-0 hover:bg-white/[0.02] transition-colors rounded-[2px]"
+            >
+              <div className="flex items-center gap-4 min-w-0">
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ background: item.isCorrect ? "#ADC6FF" : "#FFB4AB" }}
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm text-gq-text-primary truncate">
+                    {item.questionText}
+                  </span>
+                  <span className="font-mono text-xs text-gq-text-secondary tracking-tight uppercase mt-0.5">
+                    {item.subject} · {item.topic}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end flex-shrink-0 ml-4 gap-0.5">
+                <span
+                  className="font-mono text-sm font-bold"
+                  style={{ color: item.isCorrect ? "#ADC6FF" : "#FFB4AB" }}
+                >
+                  {item.isCorrect ? "SOLVED" : "ATTEMPTED"}
+                </span>
+                <span className="text-[10px] text-gq-text-secondary">
+                  {timeAgo(item.attemptedAt)}
                 </span>
               </div>
-            </div>
-            <div className="flex flex-col items-end flex-shrink-0 ml-4 gap-0.5">
-              <span className="font-mono text-sm font-bold" style={{ color: a.valueColor }}>
-                {a.value}
-              </span>
-              <span className="text-[10px] text-gq-text-secondary">{a.time}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <button className="w-full py-3 rounded-[2px] bg-[rgba(53,53,52,0.50)] text-sm font-bold tracking-widest uppercase text-gq-text-primary hover:bg-[rgba(53,53,52,0.80)] transition-colors">
-        SYNCHRONIZE FULL LOGS
-      </button>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -411,16 +468,98 @@ function UplinkFeed() {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const { user, refresh } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [activity, setActivity] = useState<{
+    heatmap: HeatmapDay[];
+    totalContributions: number;
+    history: HistoryItem[];
+  }>({ heatmap: [], totalContributions: 0, history: [] });
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setActivityLoading(true);
+    fetchProfileActivity()
+      .then((data) => {
+        if (!cancelled) setActivity(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setActivityError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAvatarFile = async (file: File) => {
+    setAvatarError(null);
+    setUploading(true);
+    try {
+      const dataUrl = await fileToAvatarDataURL(file);
+      await updateAvatar(dataUrl);
+      await refresh();
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "Couldn't update your avatar.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="px-6 pb-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
+        {/* Hidden file input for avatar uploads */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = ""; // allow re-selecting the same file later
+            if (file) void handleAvatarFile(file);
+          }}
+        />
+
+        {avatarError && (
+          <div className="rounded-lg border border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.08)] px-4 py-2 text-sm text-[#f87171]">
+            {avatarError}
+          </div>
+        )}
+
         {/* User identity header */}
-        <UserHeader />
+        <UserHeader
+          name={user?.name || user?.email || "Explorer"}
+          avatarUrl={user?.avatarUrl || ""}
+          uploading={uploading}
+          onPickAvatar={() => fileInputRef.current?.click()}
+        />
 
         {/* Row 1: Activity Map + Subject Proficiency */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8">
-            <ActivityMap />
+            {activityError ? (
+              <div className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
+                Couldn't load your activity map: {activityError}
+              </div>
+            ) : activityLoading ? (
+              <div className="flex items-center justify-center h-40 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
+                Loading activity…
+              </div>
+            ) : (
+              <ActivityMap
+                heatmap={activity.heatmap}
+                totalContributions={activity.totalContributions}
+              />
+            )}
           </div>
           <div className="lg:col-span-4">
             <SubjectProficiency />
@@ -437,8 +576,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Row 3: Uplink Feed */}
-        <UplinkFeed />
+        {/* Row 3: History (solved questions in the past 7 days) */}
+        {!activityLoading && !activityError && <History history={activity.history} />}
       </div>
     </Layout>
   );
