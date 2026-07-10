@@ -24,7 +24,12 @@ interface Subject {
   progress?: number;
   status: SubjectStatus;
   highlighted?: boolean;
-  gridPos: { col: number; row: number };
+  // Position on the "flat" (pre-transform) pyramid grid, in local pixel
+  // units centered on the canvas. These get passed through ISO_MATRIX
+  // (see below) — the same rotate/skew/scale as the cards and background
+  // grid — so pyramid rows come out parallel to the isometric grid lines
+  // instead of sitting in plain horizontal rows.
+  gridPos: { x: number; y: number };
   size: CardSize;
 }
 
@@ -90,12 +95,21 @@ const SUBJECT_SEEDS: SubjectSeed[] = [
   },
 ];
 
+// Local grid spacing (pre-transform pixel units) between cards within a
+// pyramid row, and between successive pyramid rows.
+const COL_UNIT = 245;
+const ROW_UNIT = 250;
+
 // Pyramid layout: row 0 gets 1 card, row 1 gets 2, row 2 gets 3, row 3 gets
-// 4, and so on — each row centered under the full canvas width, so the
-// cards form a widening "reverse V" as you go down. If there aren't enough
-// items to fill a row to its target size, that final row just takes
-// whatever's left (still centered).
-function computeTrianglePositions(n: number): { col: number; row: number }[] {
+// 4, and so on, each row centered — so the cards form a widening "reverse V"
+// as you go down. If there aren't enough items to fill a row to its target
+// size, that final row just takes whatever's left (still centered).
+//
+// Positions are computed on a flat, unrotated grid (row = constant local y,
+// columns spread along local x). They're later passed through ISO_MATRIX
+// (the same rotate/skew/scale used on the cards and background grid) so the
+// rows come out parallel to the isometric grid lines instead of sitting flat.
+function computeTrianglePositions(n: number): { x: number; y: number }[] {
   if (n <= 0) return [];
 
   const rowSizes: number[] = [];
@@ -109,17 +123,13 @@ function computeTrianglePositions(n: number): { col: number; row: number }[] {
   }
 
   const rows = rowSizes.length;
-  const marginX = 0.1;
-  const marginY = 0.14;
 
-  const positions: { col: number; row: number }[] = [];
+  const positions: { x: number; y: number }[] = [];
   rowSizes.forEach((count, r) => {
-    const rowFrac =
-      rows > 1 ? marginY + ((r + 0.5) / rows) * (1 - 2 * marginY) : 0.5;
+    const localY = (r - (rows - 1) / 2) * ROW_UNIT;
     for (let c = 0; c < count; c++) {
-      const colFrac =
-        count > 1 ? marginX + ((c + 0.5) / count) * (1 - 2 * marginX) : 0.5;
-      positions.push({ col: colFrac, row: rowFrac });
+      const localX = (c - (count - 1) / 2) * COL_UNIT;
+      positions.push({ x: localX, y: localY });
     }
   });
   return positions;
@@ -135,7 +145,47 @@ const SUBJECTS: Subject[] = SUBJECT_SEEDS.map((seed, i) => ({
 
 // Shared isometric tilt — used by the cards, their glow, and the background
 // grid so the whole canvas reads as one consistently-angled plane.
-const ISO_TRANSFORM = "rotate(-38deg) skewY(16deg) scaleY(0.72)";
+const ISO_ROTATE_DEG = -38;
+const ISO_SKEW_DEG = 16;
+const ISO_SCALE_Y = 0.72;
+const ISO_TRANSFORM = `rotate(${ISO_ROTATE_DEG}deg) skewY(${ISO_SKEW_DEG}deg) scaleY(${ISO_SCALE_Y})`;
+
+// 2x2 linear matrix equivalent to the CSS transform above, used to map flat
+// pyramid-grid coordinates into the same rotated/skewed/scaled screen space
+// as the cards and background grid. CSS composes `rotate skewY scaleY` by
+// applying scaleY first, then skewY, then rotate (i.e. M = R * SkewY * Sy).
+type Mat2 = [[number, number], [number, number]];
+
+function matMul(A: Mat2, B: Mat2): Mat2 {
+  return [
+    [
+      A[0][0] * B[0][0] + A[0][1] * B[1][0],
+      A[0][0] * B[0][1] + A[0][1] * B[1][1],
+    ],
+    [
+      A[1][0] * B[0][0] + A[1][1] * B[1][0],
+      A[1][0] * B[0][1] + A[1][1] * B[1][1],
+    ],
+  ];
+}
+
+const ISO_MATRIX: Mat2 = (() => {
+  const rot = (ISO_ROTATE_DEG * Math.PI) / 180;
+  const skew = (ISO_SKEW_DEG * Math.PI) / 180;
+  const R: Mat2 = [
+    [Math.cos(rot), -Math.sin(rot)],
+    [Math.sin(rot), Math.cos(rot)],
+  ];
+  const Sk: Mat2 = [
+    [1, 0],
+    [Math.tan(skew), 1],
+  ];
+  const Sy: Mat2 = [
+    [1, 0],
+    [0, ISO_SCALE_Y],
+  ];
+  return matMul(matMul(R, Sk), Sy);
+})();
 
 const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
   sm: { w: 168, h: 112 },
@@ -143,13 +193,17 @@ const CARD_DIMS: Record<CardSize, { w: number; h: number }> = {
   lg: { w: 280, h: 182 },
 };
 
-// gridPos.col / gridPos.row are fractions (0..1) of the canvas — converted
-// here to percentage strings so the layout fills the full screen and stays
-// responsive instead of relying on a fixed pixel grid.
-function isoPos(col: number, row: number) {
+// gridPos.x / gridPos.y are flat, pre-transform local pixel units. Running
+// them through ISO_MATRIX gives the actual on-screen pixel offset from the
+// canvas center — the same rotate/skew/scale applied to the cards and the
+// background grid — so a "row" (constant local y) lands parallel to the
+// grid lines instead of running flat/horizontal across the screen.
+function isoPos(localX: number, localY: number) {
+  const dx = ISO_MATRIX[0][0] * localX + ISO_MATRIX[0][1] * localY;
+  const dy = ISO_MATRIX[1][0] * localX + ISO_MATRIX[1][1] * localY;
   return {
-    left: `${col * 100}%`,
-    top: `${row * 100}%`,
+    left: `calc(50% + ${dx}px)`,
+    top: `calc(50% + ${dy}px)`,
   };
 }
 
@@ -161,7 +215,7 @@ const SubjectCard = ({ subject, onOpen }: { subject: Subject; onOpen?: (s: Subje
   const navigate = useNavigate();
 
   const { w, h } = CARD_DIMS[size];
-  const pos = isoPos(gridPos.col, gridPos.row);
+  const pos = isoPos(gridPos.x, gridPos.y);
 
   return (
     <div
