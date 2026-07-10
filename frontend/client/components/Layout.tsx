@@ -296,8 +296,8 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
             side (not the header), in the empty gutter next to the sidebar
             edge. Slides with the sidebar as it collapses/expands. */}
         <button
-          className="hidden lg:flex fixed z-20 items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-[left,background-color,color] duration-300 ease-in-out"
-          style={{ top: 65 + 16, left: sidebarCollapsed ? 16 : 242 + 16 }}
+          className="hidden lg:flex fixed z-50 items-center justify-center w-8 h-8 rounded-lg text-gq-text-muted hover:text-white hover:bg-gq-card transition-[left,background-color,color] duration-300 ease-in-out"
+          style={{ top: 65 + 16, left: sidebarCollapsed ? 16 : 242 - 16 }}
           onClick={toggleCollapsed}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
