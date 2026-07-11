@@ -139,7 +139,7 @@ export default function Onboarding() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 flex flex-col items-center px-6 pt-4 pb-4 overflow-y-auto">
+      <main className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-4 overflow-y-auto">
         {/* Titles */}
         <div className="flex flex-col items-center gap-3 mb-6 md:mb-8">
           <h1
