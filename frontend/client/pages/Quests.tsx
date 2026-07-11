@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import {
@@ -213,7 +213,7 @@ function PastQuestsSection({
   emptyHint: string;
 }) {
   return (
-    <div className="px-4 sm:px-8 lg:px-14 py-10 sm:py-14">
+    <div className="px-4 sm:px-8 lg:px-14 pt-10 sm:pt-14 pb-20">
       <div className="flex items-center justify-between mb-6">
         <div>
           <span className="font-firacode font-semibold text-gq-purple text-[11px] sm:text-[12px] tracking-[3.6px] uppercase block mb-2">
@@ -241,6 +241,92 @@ function PastQuestsSection({
             <PastQuestCard key={q.id} quest={q} />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Slider shell ─────────────────────────────────────────────────────────
+//
+// Two horizontally-snapped slides: the weekly arena hero, then the past
+// quests archive. Swipe/scroll or use the edge arrow / dots to move
+// between them — same mechanic as the old arena/sector slider, just with
+// the second slide repurposed as the practice archive.
+
+function QuestsSlider({
+  heroSlide,
+  pastSlide,
+}: {
+  heroSlide: React.ReactNode;
+  pastSlide: React.ReactNode;
+}) {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const sliderRef = useRef<HTMLDivElement | null>(null);
+  const totalSlides = 2;
+
+  const goToSlide = (index: number) => {
+    setActiveSlide(index);
+    if (sliderRef.current) {
+      sliderRef.current.scrollTo({ left: index * sliderRef.current.clientWidth, behavior: "smooth" });
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    setActiveSlide(Math.round(el.scrollLeft / el.clientWidth));
+  };
+
+  return (
+    <div className="relative w-full h-[calc(100vh-65px-16px)] min-h-[560px] overflow-hidden">
+      <div
+        ref={sliderRef}
+        onScroll={handleScroll}
+        className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scroll-smooth hide-scrollbar"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+        <div className="w-full h-full flex-shrink-0 snap-start">{heroSlide}</div>
+        <div className="w-full h-full flex-shrink-0 snap-start overflow-y-auto">{pastSlide}</div>
+      </div>
+
+      {/* Navigation dots */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+        {Array.from({ length: totalSlides }).map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goToSlide(i)}
+            className={`transition-all duration-300 rounded-full ${
+              activeSlide === i ? "w-6 h-2 bg-gq-blue" : "w-2 h-2 bg-gq-muted/50 hover:bg-gq-muted"
+            }`}
+            aria-label={`Go to slide ${i + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Left arrow */}
+      {activeSlide > 0 && (
+        <button
+          onClick={() => goToSlide(activeSlide - 1)}
+          aria-label="Previous"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-gq-bg/60 border border-gq-border flex items-center justify-center text-gq-text hover:bg-gq-border transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      )}
+
+      {/* Right arrow — points to the Past Quests slide */}
+      {activeSlide < totalSlides - 1 && (
+        <button
+          onClick={() => goToSlide(activeSlide + 1)}
+          aria-label="View past quests"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-gq-bg/60 border border-gq-border flex items-center justify-center text-gq-text hover:bg-gq-border transition-colors animate-pulse"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       )}
     </div>
   );
@@ -334,27 +420,33 @@ function WiredQuestsPage({ branch }: { branch: WiredBranch }) {
 
   return (
     <Layout>
-      <div className="relative w-full h-[calc(100vh-65px-16px)] min-h-[560px]">
-        <HeroCard
-          weekNumber={hero?.weekNumber ?? 1}
-          countdownTarget={countdownTarget}
-          countdownLabel={countdownLabel}
-          durationSeconds={hero?.durationSeconds ?? 3600}
-          questionCount={heroDetail?.questions.length ?? 0}
-          cta={cta}
-          secondary={hero ? { label: "Rating History", to: "/profile" } : undefined}
-          note={note}
-        />
-      </div>
-      {loadError && (
-        <div className="mx-4 sm:mx-8 lg:mx-14 mt-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400 text-sm font-firacode">
-          {loadError}
-        </div>
-      )}
-      <PastQuestsSection
-        quests={closedQuests}
-        loading={quests === null}
-        emptyHint={`No closed quests for ${BRANCH_LABEL[branch]} yet — once a weekly mock ends, it'll show up here for practice.`}
+      <QuestsSlider
+        heroSlide={
+          <>
+            <HeroCard
+              weekNumber={hero?.weekNumber ?? 1}
+              countdownTarget={countdownTarget}
+              countdownLabel={countdownLabel}
+              durationSeconds={hero?.durationSeconds ?? 3600}
+              questionCount={heroDetail?.questions.length ?? 0}
+              cta={cta}
+              secondary={hero ? { label: "Rating History", to: "/profile" } : undefined}
+              note={note}
+            />
+            {loadError && (
+              <div className="absolute top-6 left-6 right-24 sm:left-10 sm:right-32 z-20 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-red-400 text-xs font-firacode">
+                {loadError}
+              </div>
+            )}
+          </>
+        }
+        pastSlide={
+          <PastQuestsSection
+            quests={closedQuests}
+            loading={quests === null}
+            emptyHint={`No closed quests for ${BRANCH_LABEL[branch]} yet — once a weekly mock ends, it'll show up here for practice.`}
+          />
+        }
       />
     </Layout>
   );
@@ -367,21 +459,25 @@ function MockQuestsPage() {
 
   return (
     <Layout>
-      <div className="relative w-full h-[calc(100vh-65px-16px)] min-h-[560px]">
-        <HeroCard
-          weekNumber={1}
-          countdownTarget={countdownTarget}
-          countdownLabel="STARTS IN"
-          durationSeconds={3600}
-          questionCount={25}
-          cta={{ label: "Register Now" }}
-          note="MISSION CRITICAL: High-fidelity algorithmic simulation. Registration closes when the timer hits zero."
-        />
-      </div>
-      <PastQuestsSection
-        quests={[]}
-        loading={false}
-        emptyHint="No past quests yet — check back after the first Weekly Mock closes."
+      <QuestsSlider
+        heroSlide={
+          <HeroCard
+            weekNumber={1}
+            countdownTarget={countdownTarget}
+            countdownLabel="STARTS IN"
+            durationSeconds={3600}
+            questionCount={25}
+            cta={{ label: "Register Now" }}
+            note="MISSION CRITICAL: High-fidelity algorithmic simulation. Registration closes when the timer hits zero."
+          />
+        }
+        pastSlide={
+          <PastQuestsSection
+            quests={[]}
+            loading={false}
+            emptyHint="No past quests yet — check back after the first Weekly Mock closes."
+          />
+        }
       />
     </Layout>
   );
