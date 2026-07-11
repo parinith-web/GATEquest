@@ -1,5 +1,76 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
+import {
+  fetchProfileActivity,
+  type HeatmapDay,
+  type HistoryItem,
+  type SolveProgress,
+} from "@/lib/profile-api";
+import { getLevelProgress } from "@/lib/leveling";
+import { BRANCH_SUBJECT, getBranch, isWiredBranch } from "@/lib/gate-api";
+
+// Consecutive-day streak counted backward from the most recent day in
+// the heatmap (today) — the first day with zero attempts breaks it.
+// This is distinct from "max streak" (the longest such run anywhere in
+// the past year), which is what the profile page's Activity Map shows.
+function currentStreakFromHeatmap(heatmap: HeatmapDay[]): number {
+  let streak = 0;
+  for (let i = heatmap.length - 1; i >= 0; i--) {
+    if (heatmap[i].count > 0) streak += 1;
+    else break;
+  }
+  return streak;
+}
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+interface RecentTopic {
+  subject: string;
+  topic: string;
+  solvedCount: number;
+  lastAttemptedAt: string;
+}
+
+// Groups the last-7-days history feed (one row per question) by topic,
+// so the Overview page can show "what have I been solving lately"
+// instead of a per-question list — sorted by whichever topic was
+// touched most recently.
+function recentTopicsFromHistory(history: HistoryItem[]): RecentTopic[] {
+  const byTopic = new Map<string, RecentTopic>();
+  for (const item of history) {
+    if (!item.isCorrect) continue;
+    const key = `${item.subject}::${item.topic}`;
+    const existing = byTopic.get(key);
+    if (existing) {
+      existing.solvedCount += 1;
+      if (item.attemptedAt > existing.lastAttemptedAt) {
+        existing.lastAttemptedAt = item.attemptedAt;
+      }
+    } else {
+      byTopic.set(key, {
+        subject: item.subject,
+        topic: item.topic,
+        solvedCount: 1,
+        lastAttemptedAt: item.attemptedAt,
+      });
+    }
+  }
+  return Array.from(byTopic.values()).sort((a, b) =>
+    b.lastAttemptedAt.localeCompare(a.lastAttemptedAt),
+  );
+}
+
+
 
 
 // Donut chart for weekly quest progress
@@ -24,15 +95,6 @@ function DonutChart({ percentage }: { percentage: number }) {
         <span className="text-gq-text-secondary text-[12px]">Completed</span>
       </div>
     </div>
-  );
-}
-
-// Sparkline SVG component
-function Sparkline({ path, color = "#5DA2FA" }: { path: string; color?: string }) {
-  return (
-    <svg width="100%" height="42" viewBox="0 0 200 42" fill="none" preserveAspectRatio="none" className="overflow-visible">
-      <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 
@@ -74,14 +136,57 @@ const ChatIcon = () => (
   </svg>
 );
 
-const ArrowRight = ({ color = "#888" }: { color?: string }) => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-    <path d="M8.11667 6H0V4.66667H8.11667L4.38333 0.933333L5.33333 0L10.6667 5.33333L5.33333 10.6667L4.38333 9.73333L8.11667 6Z" fill={color}/>
-  </svg>
-);
-
 export default function Index() {
   const [activeTab, setActiveTab] = useState<"cse" | "global">("cse");
+
+  const [activity, setActivity] = useState<{
+    heatmap: HeatmapDay[];
+    history: HistoryItem[];
+    xp: number;
+    progress: SolveProgress;
+  }>({
+    heatmap: [],
+    history: [],
+    xp: 0,
+    progress: {
+      easy: { solved: 0, total: 0 },
+      medium: { solved: 0, total: 0 },
+      hard: { solved: 0, total: 0 },
+      totalSolved: 0,
+      totalQuestions: 0,
+      attempting: 0,
+    },
+  });
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  // XP (and therefore level) is scoped to whichever branch the user
+  // picked in onboarding, same as the profile page.
+  const branch = getBranch();
+  const branchSubject = isWiredBranch(branch) ? BRANCH_SUBJECT[branch] : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    setActivityLoading(true);
+    fetchProfileActivity(branchSubject)
+      .then((data) => {
+        if (!cancelled) setActivity(data);
+      })
+      .catch(() => {
+        /* Overview degrades to zeroed stats on failure — the profile
+           page is the canonical place to surface a load error. */
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branchSubject]);
+
+  const currentStreak = currentStreakFromHeatmap(activity.heatmap);
+  const solvedThisWeek = activity.history.filter((h) => h.isCorrect).length;
+  const levelProgress = getLevelProgress(activity.xp);
+  const recentTopics = recentTopicsFromHistory(activity.history);
 
   return (
     <Layout>
@@ -103,10 +208,14 @@ export default function Index() {
             <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px]">
               <span className="text-gq-text-secondary text-[15px]">Current Streak</span>
               <div className="flex flex-col gap-1">
-                <span className="text-white text-[32px] font-bold leading-[38px]">7 Days</span>
+                <span className="text-white text-[32px] font-bold leading-[38px]">
+                  {activityLoading ? "–" : `${currentStreak} Day${currentStreak === 1 ? "" : "s"}`}
+                </span>
                 <div className="flex items-center gap-2">
                   <TrendUpIcon />
-                  <span className="text-gq-blue text-[15px]">On fire!</span>
+                  <span className="text-gq-blue text-[15px]">
+                    {currentStreak > 0 ? "On fire!" : "Solve today to start one"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -115,10 +224,14 @@ export default function Index() {
             <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px]">
               <span className="text-gq-text-secondary text-[15px]">Total XP</span>
               <div className="flex flex-col gap-1">
-                <span className="text-white text-[32px] font-bold leading-[38px]">4,500</span>
+                <span className="text-white text-[32px] font-bold leading-[38px]">
+                  {activityLoading ? "–" : activity.xp.toLocaleString()}
+                </span>
                 <div className="flex items-center gap-2">
                   <TrendUpIcon />
-                  <span className="text-gq-blue text-[15px]">+320 this week</span>
+                  <span className="text-gq-blue text-[15px]">
+                    {solvedThisWeek} solved this week
+                  </span>
                 </div>
               </div>
             </div>
@@ -129,8 +242,12 @@ export default function Index() {
               <div className="absolute bottom-[-38px] right-[-44px] w-[102px] h-[102px] rotate-45 rounded-[13px] border-[8px] border-[#888] opacity-60 pointer-events-none" />
               <span className="text-gq-text-secondary text-[15px]">Current Level</span>
               <div className="flex items-end justify-between">
-                <span className="text-white text-[45px] font-bold leading-[54px]">24</span>
-                <span className="text-gq-blue text-[15px] pb-1">Goal: 50</span>
+                <span className="text-white text-[45px] font-bold leading-[54px]">
+                  {activityLoading ? "–" : levelProgress.level}
+                </span>
+                <span className="text-gq-blue text-[15px] pb-1">
+                  {activityLoading ? "" : `${Math.round(levelProgress.percentToNextLevel)}% to next`}
+                </span>
               </div>
             </div>
 
@@ -203,51 +320,44 @@ export default function Index() {
                 </div>
               </div>
 
-              {/* Focus Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* OS Card */}
-                <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className="bg-[#201F1F] rounded-[4px] p-2">
-                      <svg width="21" height="16" viewBox="0 0 39 34" fill="none">
-                        <path d="M10.5 24.5C9.95 24.5 9.47917 24.3042 9.0875 23.9125C8.69583 23.5208 8.5 23.05 8.5 22.5V10.5C8.5 9.95 8.69583 9.47917 9.0875 9.0875C9.47917 8.69583 9.95 8.5 10.5 8.5H26.5C27.05 8.5 27.5208 8.69583 27.9125 9.0875C28.3042 9.47917 28.5 9.95 28.5 10.5V22.5C28.5 23.05 28.3042 23.5208 27.9125 23.9125C27.5208 24.3042 27.05 24.5 26.5 24.5H10.5ZM10.5 22.5H26.5V12.5H10.5V22.5ZM14 21.5L12.6 20.1L15.175 17.5L12.575 14.9L14 13.5L18 17.5L14 21.5ZM18.5 21.5V19.5H24.5V21.5H18.5Z" fill="#888888"/>
-                      </svg>
-                    </div>
-                    <span className="text-gq-text-dim text-[15px] bg-[#201F1F] px-2 py-1 rounded-[2px]">80% Mastery</span>
-                  </div>
-                  <div className="pt-2">
-                    <h3 className="text-white text-[19px] font-semibold">Operating Systems</h3>
-                    <p className="text-gq-text-muted text-[15px]">Next: Virtual Memory Management</p>
-                  </div>
-                  <div className="h-[42px] overflow-hidden">
-                    <Sparkline path="M0 20C14 12 28 14 42 25C56 36 70 32 84 14C98 -4 112 -2 126 20C140 42 154 36 168 4C182 -28 196 -26 210 9" />
-                  </div>
-                  <button className="flex items-center gap-2 text-gq-text-dim text-[15px] font-medium hover:text-white transition-colors pt-1">
-                    Continue Lesson <ArrowRight />
-                  </button>
-                </div>
+              {/* Recent Topics Solved */}
+              <div className="bg-gq-card border border-gq-border rounded-[17px] p-[25px] flex flex-col gap-4">
+                <h2 className="text-white text-[19px] font-semibold">Recent Topics Solved</h2>
 
-                {/* Data Structures Card */}
-                <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className="bg-[#201F1F] rounded-[4px] p-2">
-                      <svg width="21" height="18" viewBox="0 0 39 37" fill="none">
-                        <path d="M21.5 26.5V23.5H17.5V13.5H15.5V16.5H8.5V8.5H15.5V11.5H21.5V8.5H28.5V16.5H21.5V13.5H19.5V21.5H21.5V18.5H28.5V26.5H21.5ZM23.5 14.5H26.5V10.5H23.5V14.5ZM23.5 24.5H26.5V20.5H23.5V24.5ZM10.5 14.5H13.5V10.5H10.5V14.5Z" fill="#C2C6D6"/>
-                      </svg>
-                    </div>
-                    <span className="text-gq-text-secondary text-[15px] bg-[#201F1F] px-2 py-1 rounded-[2px]">45% Mastery</span>
+                {activityLoading ? (
+                  <p className="text-gq-text-muted text-[15px] py-4">Loading…</p>
+                ) : recentTopics.length === 0 ? (
+                  <p className="text-gq-text-muted text-[15px] py-4">
+                    No questions solved in the past week yet — pick a topic in Problems to get started.
+                  </p>
+                ) : (
+                  <div className="flex flex-col">
+                    {recentTopics.map((rt, i) => (
+                      <Link
+                        key={`${rt.subject}-${rt.topic}`}
+                        to={`/problems?topic=${encodeURIComponent(rt.topic)}`}
+                        className={[
+                          "flex items-center justify-between gap-4 py-3",
+                          i < recentTopics.length - 1 ? "border-b border-gq-border" : "",
+                          "hover:opacity-80 transition-opacity",
+                        ].join(" ")}
+                      >
+                        <div className="min-w-0">
+                          <h3 className="text-white text-[17px] font-semibold truncate">{rt.topic}</h3>
+                          <p className="text-gq-text-muted text-[13px] truncate">{rt.subject}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          <span className="text-gq-blue text-[15px] font-semibold">
+                            {rt.solvedCount} solved
+                          </span>
+                          <span className="text-gq-text-muted text-[12px]">
+                            {timeAgo(rt.lastAttemptedAt)}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                  <div className="pt-2">
-                    <h3 className="text-white text-[19px] font-semibold">Data Structures</h3>
-                    <p className="text-gq-text-muted text-[15px]">Next: Advanced Tree Traversals</p>
-                  </div>
-                  <div className="h-[42px] overflow-hidden">
-                    <Sparkline path="M0 28C18 22 36 22 54 28C72 34 90 28 108 16C126 4 140 6 154 22C168 38 182 34 200 10" />
-                  </div>
-                  <button className="flex items-center gap-2 text-gq-text-secondary text-[15px] font-medium hover:text-white transition-colors pt-1">
-                    Start Lesson <ArrowRight color="#C2C6D6" />
-                  </button>
-                </div>
+                )}
               </div>
             </div>
 
