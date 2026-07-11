@@ -72,17 +72,23 @@ type historyItemDTO struct {
 	AttemptedAt  string `json:"attemptedAt"` // RFC3339
 }
 
-// GET /api/profile/activity
-// Returns everything the profile page's Activity Map + history feed
-// need in one call: a zero-filled daily heatmap for the last ~year, and
-// the last 7 days of solved questions (one entry per question, most
-// recent attempt).
+// GET /api/profile/activity?subject=Computer+Science
+// Returns everything the profile page's Activity Map + history feed +
+// XP/level header need in one call: a zero-filled daily heatmap for the
+// last ~year, the last 7 days of solved questions (one entry per
+// question, most recent attempt), and total XP earned from correctly
+// solved questions. The optional `subject` param scopes XP to a single
+// branch (e.g. "Computer Science" for the CSE branch) — the frontend
+// passes the subject matching whatever branch the user picked during
+// onboarding; omit it to total XP across every subject.
 func (h *Handlers) GetActivity(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
 		writeError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
+
+	subject := r.URL.Query().Get("subject")
 
 	to := time.Now().UTC()
 	// Align the grid to full Sunday-Saturday calendar weeks so each
@@ -121,9 +127,16 @@ func (h *Handlers) GetActivity(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	xp, err := h.Store.GetXP(r.Context(), user.ID, subject)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load xp")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"heatmap":            heatmap,
 		"totalContributions": total,
 		"history":            historyOut,
+		"xp":                 xp,
 	})
 }

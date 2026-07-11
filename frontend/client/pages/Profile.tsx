@@ -9,6 +9,8 @@ import {
   type HistoryItem,
 } from "@/lib/profile-api";
 import { fileToAvatarDataURL } from "@/lib/image";
+import { getLevelProgress } from "@/lib/leveling";
+import { BRANCH_SUBJECT, getBranch, isWiredBranch } from "@/lib/gate-api";
 
 // ── Heatmap helpers ──────────────────────────────────────────────────────────
 
@@ -48,12 +50,12 @@ interface UserHeaderProps {
   avatarUrl: string;
   uploading: boolean;
   onPickAvatar: () => void;
+  xp: number;
 }
 
-function UserHeader({ name, avatarUrl, uploading, onPickAvatar }: UserHeaderProps) {
-  const xp = 12450;
-  const xpMax = 15000;
-  const pct = (xp / xpMax) * 100;
+function UserHeader({ name, avatarUrl, uploading, onPickAvatar, xp }: UserHeaderProps) {
+  const { level, title, xpIntoLevel, xpForNextLevel, percentToNextLevel } =
+    getLevelProgress(xp);
 
   return (
     <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 p-8 rounded-lg border border-gq-border bg-gq-card overflow-hidden relative">
@@ -101,7 +103,7 @@ function UserHeader({ name, avatarUrl, uploading, onPickAvatar }: UserHeaderProp
               </span>
             </div>
             <span className="font-mono text-sm text-gq-text-secondary">
-              Level 42 Architect
+              Level {level} {title}
             </span>
           </div>
         </div>
@@ -112,14 +114,14 @@ function UserHeader({ name, avatarUrl, uploading, onPickAvatar }: UserHeaderProp
         <div className="flex justify-between items-center">
           <span className="text-sm text-gq-text-secondary">XP PROGRESSION</span>
           <span className="text-sm text-gq-accent font-bold">
-            {xp.toLocaleString()} / {xpMax.toLocaleString()}
+            {xpIntoLevel.toLocaleString()} / {xpForNextLevel.toLocaleString()}
           </span>
         </div>
         <div className="h-2 bg-[#353534] rounded-full overflow-hidden">
           <div
             className="h-full bg-gq-accent rounded-full"
             style={{
-              width: `${pct}%`,
+              width: `${percentToNextLevel}%`,
               boxShadow: "0 0 10px 0 rgba(173,198,255,0.50)",
             }}
           />
@@ -236,42 +238,6 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
             <span className="text-sm text-gq-text-secondary ml-1">More</span>
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function SubjectProficiency() {
-  const subjects = [
-    { name: "DSA", pct: 92, label: "92% Mastery" },
-    { name: "OS", pct: 78, label: "78% Mastery" },
-    { name: "DIGITAL LOGIC", pct: 85, label: "85% Mastery" },
-  ];
-
-  return (
-    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
-        <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
-          <path d="M6 12L0 6L6 0L7.425 1.425L2.825 6.025L7.4 10.6L6 12ZM14 12L12.575 10.575L17.175 5.975L12.6 1.4L14 0L20 6L14 12Z" fill="#ADC6FF"/>
-        </svg>
-        <span className="text-base text-gq-text-primary">Subject Proficiency</span>
-      </div>
-
-      <div className="flex flex-col gap-6">
-        {subjects.map(({ name, pct, label }) => (
-          <div key={name} className="flex flex-col gap-2">
-            <div className="flex justify-between items-center">
-              <span className="font-mono text-sm text-gq-accent">{name}</span>
-              <span className="text-sm text-gq-text-secondary">{label}</span>
-            </div>
-            <div className="h-1.5 bg-[#353534] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gq-accent rounded-full"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        ))}
       </div>
     </section>
   );
@@ -475,16 +441,23 @@ export default function ProfilePage() {
     heatmap: HeatmapDay[];
     totalContributions: number;
     history: HistoryItem[];
-  }>({ heatmap: [], totalContributions: 0, history: [] });
+    xp: number;
+  }>({ heatmap: [], totalContributions: 0, history: [], xp: 0 });
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
+  // XP is scoped to whichever branch the user picked in onboarding (only
+  // CSE and Data Science & AI have a real question bank so far) — same
+  // subject value the Problems/Roadmaps pages filter on.
+  const branch = getBranch();
+  const branchSubject = isWiredBranch(branch) ? BRANCH_SUBJECT[branch] : undefined;
+
   useEffect(() => {
     let cancelled = false;
     setActivityLoading(true);
-    fetchProfileActivity()
+    fetchProfileActivity(branchSubject)
       .then((data) => {
         if (!cancelled) setActivity(data);
       })
@@ -497,7 +470,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [branchSubject]);
 
   const handleAvatarFile = async (file: File) => {
     setAvatarError(null);
@@ -541,30 +514,24 @@ export default function ProfilePage() {
           avatarUrl={user?.avatarUrl || ""}
           uploading={uploading}
           onPickAvatar={() => fileInputRef.current?.click()}
+          xp={activity.xp}
         />
 
-        {/* Row 1: Activity Map + Subject Proficiency */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            {activityError ? (
-              <div className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
-                Couldn't load your activity map: {activityError}
-              </div>
-            ) : activityLoading ? (
-              <div className="flex items-center justify-center h-40 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
-                Loading activity…
-              </div>
-            ) : (
-              <ActivityMap
-                heatmap={activity.heatmap}
-                totalContributions={activity.totalContributions}
-              />
-            )}
+        {/* Row 1: Activity Map (full width) */}
+        {activityError ? (
+          <div className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
+            Couldn't load your activity map: {activityError}
           </div>
-          <div className="lg:col-span-4">
-            <SubjectProficiency />
+        ) : activityLoading ? (
+          <div className="flex items-center justify-center h-40 rounded-lg border border-gq-border bg-gq-card text-sm text-gq-text-secondary">
+            Loading activity…
           </div>
-        </div>
+        ) : (
+          <ActivityMap
+            heatmap={activity.heatmap}
+            totalContributions={activity.totalContributions}
+          />
+        )}
 
         {/* Row 2: Tactical Mastery + Badges */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

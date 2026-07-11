@@ -68,6 +68,67 @@ func (s *Store) GetActivityHeatmap(ctx context.Context, userID uuid.UUID, from, 
 	return out, nil
 }
 
+// xpForDifficulty maps a question's difficulty to the XP it's worth once
+// solved correctly. Easy/Medium/Hard follow the 20/35/50 split; anything
+// missing or unrecognized (a handful of rows in the source sheet have no
+// difficulty tag) falls back to the Medium value so it still counts for
+// something instead of silently contributing zero.
+func xpForDifficulty(difficulty string) int {
+	switch difficulty {
+	case "Easy":
+		return 20
+	case "Hard":
+		return 50
+	case "Medium":
+		return 35
+	default:
+		return 35
+	}
+}
+
+// GetXP sums the XP a user has earned from correctly-solved questions,
+// optionally restricted to a single subject (the "branch" the frontend
+// has the user pick during onboarding, e.g. "Computer Science"). Pass an
+// empty subject to total XP across every subject.
+//
+// Each question only counts once no matter how many times it was
+// attempted — DISTINCT ON (question_id) takes the earliest correct
+// attempt, so retries after an initial correct answer don't inflate XP,
+// and a question that was eventually solved after wrong attempts still
+// counts once it's right.
+func (s *Store) GetXP(ctx context.Context, userID uuid.UUID, subject string) (int, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT DISTINCT ON (a.question_id) q.difficulty
+		 FROM attempts a
+		 JOIN questions q ON q.id = a.question_id
+		 WHERE a.user_id = $1 AND a.is_correct = true
+		   AND ($2 = '' OR q.subject = $2)
+		 ORDER BY a.question_id, a.attempted_at ASC`,
+		userID, subject,
+	)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	xp := 0
+	for rows.Next() {
+		var difficulty *string
+		if err := rows.Scan(&difficulty); err != nil {
+			return 0, err
+		}
+		d := ""
+		if difficulty != nil {
+			d = *difficulty
+		}
+		xp += xpForDifficulty(d)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return xp, nil
+}
+
 // HistoryItem is one solved-question entry for the profile page's recent
 // activity feed — the most recent attempt per question, joined with
 // enough question detail to render a feed row without a second fetch.

@@ -60,10 +60,21 @@ export interface ProfileActivity {
   heatmap: HeatmapDay[];
   totalContributions: number;
   history: HistoryItem[];
+  /** Total XP earned from correctly-solved questions (see lib/leveling.ts
+   * for how this turns into a level). Scoped to `subject` when one is
+   * passed to fetchProfileActivity. */
+  xp: number;
 }
 
-export async function fetchProfileActivity(): Promise<ProfileActivity> {
-  return jsonFetch(`${API_BASE}/profile/activity`);
+/**
+ * `subject` scopes the returned XP to a single branch's question bank
+ * (e.g. "Computer Science" for the CSE branch) — pass
+ * BRANCH_SUBJECT[branch] from lib/gate-api.ts. Omit it to total XP
+ * across every subject the user has answered questions in.
+ */
+export async function fetchProfileActivity(subject?: string): Promise<ProfileActivity> {
+  const qs = subject ? `?subject=${encodeURIComponent(subject)}` : "";
+  return jsonFetch(`${API_BASE}/profile/activity${qs}`);
 }
 
 // --- Attempts ------------------------------------------------------------
