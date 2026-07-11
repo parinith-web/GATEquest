@@ -146,3 +146,138 @@ export const BRANCH_TOPIC_ORDER: Record<WiredBranch, string[]> = {
 export function getBranch(): string | null {
   return localStorage.getItem("gatequest_branch");
 }
+
+// ─── Quests (weekly mock arena) ─────────────────────────────────────────────
+//
+// Thin client for backend/internal/api/quest.go. Unlike the questions/topics
+// endpoints above, these carry the session cookie (credentials: "include")
+// since every quest route requires an authenticated user.
+
+async function questFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      /* ignore parse errors, use default message */
+    }
+    throw new Error(message);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+export type QuestStatus = "scheduled" | "live" | "closed";
+
+export interface QuestSummary {
+  id: string;
+  branch: string;
+  weekNumber: number;
+  title: string;
+  startsAt: string; // RFC3339
+  durationSeconds: number;
+  status: QuestStatus;
+}
+
+export interface QuestSafeQuestion {
+  id: number;
+  orderIndex: number;
+  subject: string;
+  topic: string;
+  type: "mcq" | "msq" | "nat";
+  questionText: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  difficulty: string | null;
+  marks: number | null;
+}
+
+export interface QuestDetail extends QuestSummary {
+  questions: QuestSafeQuestion[];
+  isParticipant: boolean;
+  userRating: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  score?: number;
+}
+
+export interface QuestResultEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  solvedCount: number;
+  timeTakenSeconds: number;
+  ratingBefore: number;
+  ratingAfter: number;
+}
+
+export interface QuestHistoryEntry {
+  quest: QuestSummary;
+  result: QuestResultEntry;
+}
+
+export async function fetchQuests(branch?: string): Promise<QuestSummary[]> {
+  const params = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+  return questFetch(`${API_BASE}/quests${params}`);
+}
+
+export async function fetchQuestDetail(id: string): Promise<QuestDetail> {
+  return questFetch(`${API_BASE}/quests/${id}`);
+}
+
+export async function joinQuest(id: string): Promise<void> {
+  await questFetch(`${API_BASE}/quests/${id}/join`, { method: "POST" });
+}
+
+export async function submitQuestAnswer(
+  id: string,
+  questionId: number,
+  answer: string,
+): Promise<void> {
+  await questFetch(`${API_BASE}/quests/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify({ questionId, answer }),
+  });
+}
+
+export async function fetchQuestLeaderboard(id: string): Promise<LeaderboardEntry[]> {
+  return questFetch(`${API_BASE}/quests/${id}/leaderboard`);
+}
+
+export async function fetchQuestResults(id: string): Promise<QuestResultEntry[]> {
+  return questFetch(`${API_BASE}/quests/${id}/results`);
+}
+
+export async function fetchQuestRatingHistory(): Promise<QuestHistoryEntry[]> {
+  return questFetch(`${API_BASE}/quests/rating-history`);
+}
+
+// ── Weekly cadence helper ───────────────────────────────────────────────────
+//
+// Weekly mocks land every Sunday at 6:30 PM local time. Used as the
+// countdown target when there's no live/scheduled quest to point at yet
+// (e.g. next week's hasn't been created), so the arena card always has
+// something meaningful to count down to.
+export function nextSunday630pm(from: Date = new Date()): Date {
+  const target = new Date(from);
+  target.setHours(18, 30, 0, 0);
+  const daysUntilSunday = (7 - target.getDay()) % 7;
+  if (daysUntilSunday === 0 && target.getTime() <= from.getTime()) {
+    target.setDate(target.getDate() + 7);
+  } else {
+    target.setDate(target.getDate() + daysUntilSunday);
+  }
+  return target;
+}

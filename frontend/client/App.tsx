@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import OnboardingMore from "./pages/OnboardingMore";
 import Quests from "./pages/Quests";
+import QuestDetail from "./pages/QuestDetail";
 import Problems from "./pages/Problems";
 import Pulse from "./pages/Pulse";
 import Question from "./pages/Question";
@@ -50,6 +51,7 @@ const AppRoutes = () => (
     <Route path="/onboarding" element={<Onboarding />} />
     <Route path="/onboarding/more" element={<OnboardingMore />} />
     <Route path="/quests" element={<ProtectedRoute><Quests /></ProtectedRoute>} />
+    <Route path="/quests/:id" element={<ProtectedRoute><QuestDetail /></ProtectedRoute>} />
     <Route path="/problems" element={<ProtectedRoute><Problems /></ProtectedRoute>} />
     <Route path="/pulse" element={<ProtectedRoute><Pulse /></ProtectedRoute>} />
     <Route path="/question/:id" element={<ProtectedRoute><Question /></ProtectedRoute>} />
