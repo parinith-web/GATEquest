@@ -382,16 +382,20 @@ function SolveCounter({ progress }: SolveCounterProps) {
   // more than double Easy/Hard's question count, visibly takes up more
   // of the ring), and each arc is itself split into a bright leading
   // segment (that difficulty's solved fraction) and a dim trailing
-  // segment (what's left) — same read as LeetCode's donut. A few degrees
-  // of empty space between arcs is what makes them read as three
-  // distinct joined arcs rather than one solid ring.
+  // segment (what's left) — same read as LeetCode's donut. The ring
+  // isn't a closed 360° loop: it's a gauge shape open at the bottom
+  // (TOTAL_SWEEP_DEG < 360, centered gap at the bottom), and ARC_GAP_DEG
+  // of empty space separates each of the three arcs from its neighbors
+  // so they visibly don't touch.
   const size = 200;
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const cx = size / 2;
   const cy = size / 2;
-  const GAP_DEG = 5; // empty space between each of the 3 arcs
+  const TOTAL_SWEEP_DEG = 300; // ring covers 300° total, leaving a 60° gap at the bottom
+  const ARC_GAP_DEG = 14; // empty space between each of the 3 arcs
+  const START_DEG = 210; // offset where the ring starts (bottom-left, right after the bottom gap)
 
   const difficulties = [
     { key: "easy", color: DIFFICULTY_COLORS.easy, data: easy },
@@ -399,10 +403,10 @@ function SolveCounter({ progress }: SolveCounterProps) {
     { key: "hard", color: DIFFICULTY_COLORS.hard, data: hard },
   ];
 
-  const availableDeg = 360 - difficulties.length * GAP_DEG;
+  const availableDeg = TOTAL_SWEEP_DEG - (difficulties.length - 1) * ARC_GAP_DEG;
   const degToLen = (deg: number) => (deg / 360) * circumference;
 
-  let cursorDeg = 0;
+  let cursorDeg = START_DEG;
   const segments: {
     key: string;
     color: string;
@@ -434,7 +438,7 @@ function SolveCounter({ progress }: SolveCounterProps) {
         offset: degToLen(cursorDeg + solvedDeg),
       });
     }
-    cursorDeg += arcDeg + GAP_DEG;
+    cursorDeg += arcDeg + ARC_GAP_DEG;
   });
 
   const rows = [
