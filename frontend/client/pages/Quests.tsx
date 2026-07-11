@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
+import ComingSoon from "@/components/ComingSoon";
 import {
   getBranch,
   isWiredBranch,
@@ -452,37 +453,6 @@ function WiredQuestsPage({ branch }: { branch: WiredBranch }) {
   );
 }
 
-// ── Mock (non-wired branch) fallback ────────────────────────────────────────
-
-function MockQuestsPage() {
-  const countdownTarget = nextSunday630pm();
-
-  return (
-    <Layout>
-      <QuestsSlider
-        heroSlide={
-          <HeroCard
-            weekNumber={1}
-            countdownTarget={countdownTarget}
-            countdownLabel="STARTS IN"
-            durationSeconds={3600}
-            questionCount={25}
-            cta={{ label: "Register Now" }}
-            note="MISSION CRITICAL: High-fidelity algorithmic simulation. Registration closes when the timer hits zero."
-          />
-        }
-        pastSlide={
-          <PastQuestsSection
-            quests={[]}
-            loading={false}
-            emptyHint="No past quests yet — check back after the first Weekly Mock closes."
-          />
-        }
-      />
-    </Layout>
-  );
-}
-
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 export default function QuestsPage() {
@@ -490,5 +460,11 @@ export default function QuestsPage() {
   if (isWiredBranch(branch)) {
     return <WiredQuestsPage branch={branch} />;
   }
-  return <MockQuestsPage />;
+
+  // Every other branch doesn't have weekly quests wired up yet.
+  return (
+    <Layout>
+      <ComingSoon branch={branch} />
+    </Layout>
+  );
 }

@@ -110,6 +110,14 @@ export const BRANCH_LABEL: Record<WiredBranch, string> = {
   da: "Data Science & AI",
 };
 
+// Human-readable label for ANY branch value, wired or not. Non-wired
+// branches already persist a readable label (e.g. "Electronics",
+// "Mechanical", or a custom "Other" entry), so this just passes it
+// through; wired branches get their short display label instead.
+export function BRANCH_LABEL_ANY(branch: string): string {
+  return isWiredBranch(branch) ? BRANCH_LABEL[branch] : branch;
+}
+
 // The order topics should appear in the roadmap/sidebar — this is
 // curriculum order, not alphabetical, so it's specified explicitly
 // rather than derived from the DB.

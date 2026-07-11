@@ -168,8 +168,8 @@ export default function Onboarding() {
                   }
                 }}
                 className={[
-                  "relative flex flex-col items-center justify-center gap-6 rounded-lg overflow-hidden",
-                  "min-h-[220px] md:min-h-[262px] p-12 md:p-16",
+                  "relative flex flex-col items-center justify-center gap-5 rounded-lg overflow-hidden",
+                  "min-h-[190px] md:min-h-[224px] p-9 md:p-12",
                   "transition-all duration-200 cursor-pointer",
                   "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF]",
                   isSelected

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
+import ComingSoon from "@/components/ComingSoon";
 import {
   getBranch,
   isWiredBranch,
@@ -563,10 +564,18 @@ export default function RoadmapsPage() {
     navigate(`/problems?topic=${encodeURIComponent(subject.name)}`);
   };
 
-  // Non-wired branches (ECE, EE, CE, ME, Other) keep the exact original
-  // mockup below, unchanged.
-  const subjects = wired ? liveSubjects : SUBJECTS;
-  const canvasHeight = wired ? liveCanvasHeight : MOCK_CANVAS_HEIGHT;
+  // Non-wired branches (ECE, EE, CE, ME, Other) don't have a curriculum
+  // roadmap wired up yet.
+  if (!wired) {
+    return (
+      <Layout>
+        <ComingSoon branch={branch} />
+      </Layout>
+    );
+  }
+
+  const subjects = liveSubjects;
+  const canvasHeight = liveCanvasHeight;
 
   return (
     <Layout>
@@ -613,10 +622,10 @@ export default function RoadmapsPage() {
           }}
         />
 
-        {wired && !subjects && !liveError && (
+        {!subjects && !liveError && (
           <div className="relative z-10 text-zinc-500 text-sm py-8">Loading topics…</div>
         )}
-        {wired && liveError && (
+        {liveError && (
           <div className="relative z-10 text-red-400 text-sm py-8">
             Couldn't load topics: {liveError}
           </div>
@@ -626,7 +635,7 @@ export default function RoadmapsPage() {
           <>
             {/* ── Isometric roadmap (desktop) ── */}
             <div className="hidden md:block relative z-10 pb-8">
-              <IsometricRoadmap subjects={subjects} height={canvasHeight} onOpen={wired ? openTopic : undefined} />
+              <IsometricRoadmap subjects={subjects} height={canvasHeight} onOpen={openTopic} />
             </div>
 
             {/* ── Mobile card list ── */}
@@ -636,7 +645,7 @@ export default function RoadmapsPage() {
                   <MobileSubjectCard
                     key={subject.id}
                     subject={subject}
-                    onOpen={wired ? openTopic : undefined}
+                    onOpen={openTopic}
                   />
                 ))}
               </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
+import ComingSoon from "@/components/ComingSoon";
 import {
   getBranch,
   isWiredBranch,
@@ -11,67 +12,6 @@ import {
   type TopicCount,
   type QuestionListItem,
 } from "@/lib/gate-api";
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const problems = [
-  {
-    id: 1,
-    solved: true,
-    title: "AVL Tree Rotations",
-    difficulty: "Easy" as const,
-    success: "65.4%",
-    tags: ["GATE 2023", "Balanced Trees"],
-  },
-  {
-    id: 2,
-    solved: false,
-    title: "Graph Breadth First Search",
-    difficulty: "Medium" as const,
-    success: "52.1%",
-    tags: ["PSU Preferred", "Algorithms"],
-  },
-  {
-    id: 3,
-    solved: false,
-    title: "Matrix Chain Multiplication",
-    difficulty: "Hard" as const,
-    success: "34.8%",
-    tags: ["Dynamic Prog."],
-  },
-  {
-    id: 4,
-    solved: true,
-    title: "Dijkstra's Algorithm Complexity",
-    difficulty: "Medium" as const,
-    success: "47.6%",
-    tags: ["GATE 2021"],
-  },
-  {
-    id: 5,
-    solved: false,
-    title: "Topological Sorting DFS",
-    difficulty: "Easy" as const,
-    success: "71.0%",
-    tags: ["DAG", "Basics"],
-  },
-  {
-    id: 6,
-    solved: false,
-    title: "B+ Tree Node Capacity",
-    difficulty: "Hard" as const,
-    success: "28.9%",
-    tags: ["DB Concepts", "Numerical"],
-  },
-  {
-    id: 7,
-    solved: false,
-    title: "B+ Tree Node Capacity",
-    difficulty: "Hard" as const,
-    success: "28.9%",
-    tags: ["DB Concepts", "Numerical"],
-  },
-];
 
 // ─── Icon SVGs ────────────────────────────────────────────────────────────────
 
@@ -190,350 +130,6 @@ function IconCircleEmpty() {
         fill="#424754"
       />
     </svg>
-  );
-}
-
-// ─── Progress Widget ───────────────────────────────────────────────────────────
-
-function ProgressWidget() {
-  const total = 814;
-  const solved = 61;
-  const r = 44;
-  const circ = 2 * Math.PI * r;
-  const progress = solved / total;
-  const filled = circ * progress;
-
-  const bars = [
-    { label: "Easy", done: 24, total: 186, color: "#ADC6FF" },
-    { label: "Medium", done: 34, total: 474, color: "#EAB308" },
-    { label: "Hard", done: 3, total: 154, color: "#FFB4AB" },
-  ];
-
-  return (
-    <div className="rounded-lg border border-gq-border bg-gq-card p-6 flex flex-col gap-1 backdrop-blur-sm">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="w-10 h-10 rounded-[4px] bg-[rgba(77,142,255,0.20)] flex items-center justify-center">
-          <IconNetwork />
-        </div>
-        <button className="opacity-70 hover:opacity-100 transition-opacity">
-          <IconRefresh />
-        </button>
-      </div>
-
-      {/* Title */}
-      <div className="pt-3">
-        <h3 className="text-gq-text text-[32px] font-semibold leading-[1.25] tracking-[-0.32px]">
-          Data
-          <br />
-          Structures
-        </h3>
-      </div>
-      <p className="text-gq-muted text-sm">Mastery: GATE Prep CS</p>
-
-      {/* Circular progress */}
-      <div className="flex justify-center pt-5">
-        <div className="relative w-[110px] h-[106px]">
-          <svg viewBox="0 0 110 106" width="110" height="106">
-            <ellipse cx="55" cy="53" rx="54" ry="53" fill="transparent" />
-            <circle
-              cx="55"
-              cy="53"
-              r={r}
-              fill="transparent"
-              stroke="#2A2A2A"
-              strokeWidth="7"
-            />
-            <circle
-              cx="55"
-              cy="53"
-              r={r}
-              fill="transparent"
-              stroke="#ADC6FF"
-              strokeWidth="7"
-              strokeDasharray={`${filled} ${circ - filled}`}
-              strokeDashoffset={circ * 0.25}
-              strokeLinecap="round"
-              transform="rotate(-90 55 53)"
-              style={{ transformOrigin: "55px 53px" }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-gq-text text-[32px] font-semibold leading-[1.25] tracking-[-0.32px]">
-              {solved}
-            </span>
-            <span className="text-gq-muted text-[12px] font-semibold tracking-[0.6px]">
-              / {total} Solved
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="flex justify-center">
-        <span className="text-gq-blue text-[12px] font-semibold tracking-[0.6px] uppercase">
-          progress
-        </span>
-      </div>
-
-      {/* Difficulty breakdown */}
-      <div className="flex flex-col gap-3 pt-7">
-        {bars.map(({ label, done, total: t, color }) => (
-          <div key={label}>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-gq-muted text-xs font-semibold tracking-[0.6px]">
-                {label}
-              </span>
-              <span className="text-gq-text text-xs font-bold tracking-[0.6px]">
-                {done} / {t}
-              </span>
-            </div>
-            <div className="h-[6px] w-full bg-gq-row rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${(done / t) * 100}%`,
-                  backgroundColor: color,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Topic Filters ─────────────────────────────────────────────────────────────
-
-function TopicFilters() {
-  const topics = [
-    { name: "Linked Lists", count: 84, starred: true },
-    { name: "Stacks", count: 120, starred: false },
-    { name: "Queues", count: 42, starred: false },
-    { name: "Trees", count: 156, starred: false },
-    { name: "Graphs", count: 212, starred: false },
-  ];
-
-  return (
-    <div className="rounded-lg border border-gq-border bg-gq-card p-6 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-gq-muted text-xs font-semibold tracking-[0.6px] uppercase">
-          Topics
-        </span>
-        <button className="opacity-70 hover:opacity-100 transition-opacity">
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-            <path d="M4.5 6H0V4.5H4.5V0H6V4.5H10.5V6H6V10.5H4.5V6Z" fill="#C2C6D6" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Topic list */}
-      <div className="flex flex-col gap-1">
-        {topics.map(({ name, count, starred }) => (
-          <div
-            key={name}
-            className={`flex items-center justify-between px-2 py-2 rounded-sm cursor-pointer transition-colors ${
-              starred ? "" : "hover:bg-gq-nav-active/20"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 pl-0.5 min-w-0 flex-1">
-              <div className="flex items-center justify-center h-6 shrink-0">
-                {starred ? <IconStar /> : <IconFolder />}
-              </div>
-              <span
-                className={`text-base font-${starred ? "bold" : "normal"} leading-6 truncate ${
-                  starred ? "text-gq-blue" : "text-gq-text"
-                }`}
-              >
-                {name}
-              </span>
-            </div>
-            {starred ? (
-              <div className="bg-gq-blue/20 rounded-sm px-[6px] shrink-0 ml-3">
-                <span className="text-gq-blue text-[10px] font-bold leading-6 whitespace-nowrap">{count}</span>
-              </div>
-            ) : (
-              <span className="text-gq-muted text-[10px] font-normal leading-6 shrink-0 whitespace-nowrap ml-3">{count}</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Difficulty Badge ──────────────────────────────────────────────────────────
-
-function DifficultyBadge({ level }: { level: "Easy" | "Medium" | "Hard" }) {
-  const colors: Record<string, string> = {
-    Easy: "text-gq-blue",
-    Medium: "text-gq-yellow",
-    Hard: "text-gq-red",
-  };
-  return (
-    <span className={`text-xs font-bold tracking-[0.6px] ${colors[level]}`}>
-      {level}
-    </span>
-  );
-}
-
-// ─── Problems Table ────────────────────────────────────────────────────────────
-
-function ProblemsTable() {
-  const navigate = useNavigate();
-  return (
-    <div className="rounded-lg border border-gq-border bg-gq-card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[600px]">
-          <thead>
-            <tr className="border-b border-gq-border bg-gq-row/30">
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[115px] whitespace-nowrap">
-                Status
-              </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
-                Title
-              </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[140px] whitespace-nowrap">
-                Difficulty
-              </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase w-[120px] whitespace-nowrap">
-                Success
-              </th>
-              <th className="text-left px-6 py-4 text-gq-muted text-base font-bold tracking-[0.8px] uppercase">
-                Tags
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {problems.map((p, i) => (
-              <tr
-                key={p.id}
-                onClick={() => navigate(`/question/${p.id}`)}
-                className={`cursor-pointer hover:bg-gq-nav-active/20 transition-colors ${
-                  i > 0 ? "border-t border-gq-border" : ""
-                }`}
-              >
-                {/* Status */}
-                <td className="px-6 py-6">
-                  {p.solved ? <IconCheckCircle /> : <IconCircleEmpty />}
-                </td>
-
-                {/* Title */}
-                <td className="px-6 py-4">
-                  <span className="text-gq-text text-base leading-tight">
-                    {p.title}
-                  </span>
-                </td>
-
-                {/* Difficulty */}
-                <td className="px-6 py-6">
-                  <DifficultyBadge level={p.difficulty} />
-                </td>
-
-                {/* Success */}
-                <td className="px-6 py-6">
-                  <span className="text-gq-muted text-base">{p.success}</span>
-                </td>
-
-                {/* Tags */}
-                <td className="px-6 py-6">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {p.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-gq-tag text-gq-muted text-[10px] font-normal rounded-sm px-2 py-0.5 whitespace-nowrap"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── Filter Header ─────────────────────────────────────────────────────────────
-
-function FiltersHeader() {
-  return (
-    <div className="flex items-center gap-4 p-4 rounded-lg border border-gq-border bg-gq-card flex-wrap">
-      {/* Search input */}
-      <div className="flex-1 min-w-[160px] relative">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2">
-          <IconSearch size={14} />
-        </div>
-        <input
-          placeholder="Search questions..."
-          className="w-full bg-gq-bg border border-gq-border rounded-[4px] py-[9px] pl-10 pr-4 text-sm text-gq-dim focus:outline-none focus:border-gq-blue/50 transition-colors"
-        />
-      </div>
-
-      {/* Filter dropdowns */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {["Status", "Difficulty", "Tags"].map((label) => (
-          <button
-            key={label}
-            className="flex items-center gap-2.5 px-4 py-[7px] border border-gq-border rounded-[4px] text-gq-muted text-base hover:border-gq-blue/50 transition-colors"
-          >
-            <span>{label}</span>
-            <IconChevronDown />
-          </button>
-        ))}
-        <button className="p-2 hover:text-gq-text text-gq-muted transition-colors">
-          <IconExpand />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Pagination ────────────────────────────────────────────────────────────────
-
-function Pagination() {
-  return (
-    <div className="flex items-center justify-between py-4">
-      <span className="text-gq-muted text-sm">Showing 1-20 of 814 questions</span>
-      <div className="flex items-center gap-1">
-        {/* Prev */}
-        <button className="p-2 opacity-20 cursor-not-allowed">
-          <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
-            <path d="M6 12L0 6L6 0L7.4 1.4L2.8 6L7.4 10.6L6 12Z" fill="#C2C6D6" />
-          </svg>
-        </button>
-
-        {/* Page 1 — active */}
-        <button className="w-9 h-8 flex items-center justify-center rounded-sm border border-gq-blue bg-gq-blue/20 text-gq-blue text-base">
-          1
-        </button>
-
-        {["2", "3"].map((p) => (
-          <button
-            key={p}
-            className="w-9 h-8 flex items-center justify-center rounded-sm text-gq-muted text-base hover:bg-gq-nav-active/30 transition-colors"
-          >
-            {p}
-          </button>
-        ))}
-
-        <span className="px-2 text-gq-muted text-base">...</span>
-
-        <button className="w-9 h-8 flex items-center justify-center rounded-sm text-gq-muted text-base hover:bg-gq-nav-active/30 transition-colors">
-          41
-        </button>
-
-        {/* Next */}
-        <button className="p-2 text-gq-muted hover:text-gq-text transition-colors">
-          <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
-            <path d="M4.6 6L0 1.4L1.4 0L7.4 6L1.4 12L0 10.6L4.6 6Z" fill="#C2C6D6" />
-          </svg>
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -681,6 +277,21 @@ function LiveTopicFilters({
         })}
       </div>
     </div>
+  );
+}
+
+// ─── Difficulty Badge ──────────────────────────────────────────────────────────
+
+function DifficultyBadge({ level }: { level: "Easy" | "Medium" | "Hard" }) {
+  const colors: Record<string, string> = {
+    Easy: "text-gq-blue",
+    Medium: "text-gq-yellow",
+    Hard: "text-gq-red",
+  };
+  return (
+    <span className={`text-xs font-bold tracking-[0.6px] ${colors[level]}`}>
+      {level}
+    </span>
   );
 }
 
@@ -1073,25 +684,10 @@ export default function ProblemsPage() {
     );
   }
 
-  // Every other branch keeps the original static mockup, unchanged.
+  // Every other branch doesn't have a question bank wired up yet.
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex flex-col xl:flex-row gap-6 w-full">
-          {/* Left panel */}
-          <div className="xl:w-[290px] shrink-0 flex flex-col gap-6">
-            <ProgressWidget />
-            <TopicFilters />
-          </div>
-
-          {/* Problems section */}
-          <div className="flex-1 min-w-0 flex flex-col gap-4 pb-12">
-            <FiltersHeader />
-            <ProblemsTable />
-            <Pagination />
-          </div>
-        </div>
-      </div>
+      <ComingSoon branch={branch} />
     </Layout>
   );
 }
