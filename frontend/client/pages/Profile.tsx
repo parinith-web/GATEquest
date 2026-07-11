@@ -55,11 +55,16 @@ const HEAT_GLOW = [
   "0 0 11px rgba(143,182,255,0.75)",
 ];
 
-// Fixed cell size (GitHub/LeetCode-style) instead of stretching to fill
-// the card — keeps the grid feeling dense and hand-crafted rather than a
-// handful of oversized blocks. Scrolls horizontally on narrow screens.
-const CELL_SIZE = 13;
-const CELL_GAP = 4;
+// Fluid cell sizing (percent-based, via flexbox + aspect-square) so the
+// grid actually fills the card instead of sitting in a fixed-size island —
+// CELL_GAP separates cells within a month, MONTH_GAP separates one
+// month's block from the next so the calendar visibly breaks into months.
+// MIN_GRID_WIDTH is a floor: below it (narrow phones) the grid stops
+// shrinking and the wrapper scrolls horizontally instead of cells turning
+// into illegible slivers.
+const CELL_GAP = 3;
+const MONTH_GAP = 10;
+const MIN_GRID_WIDTH = 640;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -157,23 +162,28 @@ interface ActivityMapProps {
 function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
   const weekCount = Math.max(1, Math.ceil(heatmap.length / 7));
 
-  // Label the first column of each new month, derived from the actual
-  // dates rather than a hardcoded 12-month list.
-  const monthLabels: { col: number; label: string }[] = [];
-  {
-    let lastMonth = "";
-    heatmap.forEach((d, i) => {
-      const col = Math.floor(i / 7);
-      const date = new Date(`${d.date}T00:00:00Z`);
-      const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
-      if (monthKey !== lastMonth && date.getUTCDate() <= 7) {
-        lastMonth = monthKey;
-        monthLabels.push({
-          col,
-          label: date.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
-        });
-      }
-    });
+  // Group columns (calendar weeks) into contiguous month blocks so the
+  // grid can render each month as its own mini-grid — that's what makes
+  // "breaking it up by month" possible instead of one continuous strip.
+  // A column belongs to whichever month its first (Sunday) day falls in.
+  interface MonthGroup {
+    label: string;
+    monthKey: string;
+    startCol: number;
+    endCol: number;
+  }
+  const monthGroups: MonthGroup[] = [];
+  for (let col = 0; col < weekCount; col++) {
+    const day = heatmap[col * 7] ?? heatmap[heatmap.length - 1];
+    const date = new Date(`${day.date}T00:00:00Z`);
+    const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+    const label = date.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+    const last = monthGroups[monthGroups.length - 1];
+    if (last && last.monthKey === monthKey) {
+      last.endCol = col;
+    } else {
+      monthGroups.push({ label, monthKey, startCol: col, endCol: col });
+    }
   }
 
   // Total active days + longest streak, computed straight from the
@@ -194,8 +204,6 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
     }
     return { activeDays: active, maxStreak: longest };
   }, [heatmap]);
-
-  const gridTemplateColumns = `repeat(${weekCount}, ${CELL_SIZE}px)`;
 
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
@@ -226,57 +234,68 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
         question{totalContributions === 1 ? "" : "s"} attempted in the last year
       </span>
 
-      {/* Heatmap grid */}
+      {/* Heatmap grid, broken into one flex item per month so it visibly
+          separates by month while still filling the full card width —
+          each item's flex-grow is proportional to how many weeks that
+          month spans, so every column ends up the same width. */}
       {heatmap.length === 0 ? (
         <div className="py-10 text-center text-sm text-gq-text-secondary">
           No activity yet — solve a question to light up the map.
         </div>
       ) : (
         <div className="overflow-x-auto pb-1">
-          <div className="flex flex-col gap-2 w-fit min-w-full">
-            {/* Month labels, aligned to the same fixed-width columns as the grid below */}
-            <div
-              className="grid text-left"
-              style={{ gridTemplateColumns, columnGap: CELL_GAP }}
-            >
-              {monthLabels.map(({ col, label }) => (
+          <div className="flex flex-col gap-2" style={{ minWidth: MIN_GRID_WIDTH }}>
+            {/* Month labels */}
+            <div className="flex" style={{ gap: MONTH_GAP }}>
+              {monthGroups.map((g) => (
                 <span
-                  key={`${col}-${label}`}
-                  className="font-mono text-xs text-gq-text-secondary"
-                  style={{ gridColumn: col + 1 }}
+                  key={`${g.monthKey}-label`}
+                  className="font-mono text-xs text-gq-text-secondary truncate"
+                  style={{ flexGrow: g.endCol - g.startCol + 1, flexBasis: 0, minWidth: 0 }}
                 >
-                  {label}
+                  {g.label}
                 </span>
               ))}
             </div>
 
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns,
-                gridTemplateRows: `repeat(7, ${CELL_SIZE}px)`,
-                columnGap: CELL_GAP,
-                rowGap: CELL_GAP,
-              }}
-            >
-              {heatmap.map((d, i) => {
-                const col = Math.floor(i / 7) + 1;
-                const row = (i % 7) + 1;
-                const level = levelForCount(d.count);
+            {/* Month blocks */}
+            <div className="flex" style={{ gap: MONTH_GAP }}>
+              {monthGroups.map((g) => {
+                const cols = g.endCol - g.startCol + 1;
                 return (
                   <div
-                    key={d.date}
-                    className="rounded-[4px] transition-all duration-150 ease-out hover:scale-125 hover:z-10 hover:rounded-[5px] cursor-default"
-                    style={{
-                      background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
-                      boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
-                      gridColumn: col,
-                      gridRow: row,
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
-                    }}
-                    title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
-                  />
+                    key={g.monthKey}
+                    style={{ flexGrow: cols, flexBasis: 0, minWidth: 0 }}
+                  >
+                    <div
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                        columnGap: CELL_GAP,
+                        rowGap: CELL_GAP,
+                      }}
+                    >
+                      {heatmap.map((d, i) => {
+                        const col = Math.floor(i / 7);
+                        if (col < g.startCol || col > g.endCol) return null;
+                        const row = (i % 7) + 1;
+                        const level = levelForCount(d.count);
+                        return (
+                          <div
+                            key={d.date}
+                            className="aspect-square rounded-[4px] transition-all duration-150 ease-out hover:scale-125 hover:z-10 hover:rounded-[5px] cursor-default"
+                            style={{
+                              background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
+                              boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
+                              gridColumn: col - g.startCol + 1,
+                              gridRow: row,
+                            }}
+                            title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
