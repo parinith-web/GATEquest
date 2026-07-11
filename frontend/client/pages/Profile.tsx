@@ -292,7 +292,11 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
           const gridTemplateColumns = templateParts.join(" ");
 
           return (
-            <div className="overflow-x-auto pb-1">
+            <div
+              className="overflow-x-auto pb-1 gq-activity-map-scroll"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              <style>{`.gq-activity-map-scroll::-webkit-scrollbar { display: none; }`}</style>
               <div
                 className="grid"
                 style={{
