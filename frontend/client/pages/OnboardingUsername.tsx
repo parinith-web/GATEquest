@@ -78,10 +78,10 @@ export default function OnboardingUsername() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px]">
           <div className="flex flex-col items-center gap-4 mb-10 text-center">
-            <h1 className="text-[#E5E1E4] font-['Geist'] font-normal text-4xl md:text-5xl leading-[1.25] tracking-[-1.2px]">
+            <h1 className="text-[#E5E1E4] font-sans font-normal text-4xl md:text-5xl leading-[1.25] tracking-[-1.2px]">
               Claim Your Handle.
             </h1>
-            <p className="text-[#C2C6D6] font-['Geist'] font-normal text-base leading-6">
+            <p className="text-[#C2C6D6] font-sans font-normal text-base leading-6">
               Pick a unique username — this is how you'll show up on
               leaderboards, Pulse, and your profile.
             </p>
@@ -125,7 +125,7 @@ export default function OnboardingUsername() {
                 boxShadow: "0 0 15px 0 rgba(173, 198, 255, 0.20)",
               }}
             >
-              <span className="relative font-['Geist'] font-bold text-[13px] leading-[19.5px] tracking-[2.6px] uppercase text-white">
+              <span className="relative font-sans font-bold text-[13px] leading-[19.5px] tracking-[2.6px] uppercase text-white">
                 {busy ? "CLAIMING…" : "CLAIM USERNAME"}
               </span>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

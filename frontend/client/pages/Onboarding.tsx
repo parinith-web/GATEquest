@@ -55,16 +55,6 @@ const branches: Branch[] = [
     ),
   },
   {
-    id: "ce",
-    label: "Civil",
-    code: "CE",
-    icon: (
-      <svg width="20" height="34" viewBox="0 0 20 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M0.269232 33.8462L0 31.7538L5.16154 17.5154C5.43077 17.7513 5.70962 17.9378 5.99809 18.075C6.28655 18.2122 6.58463 18.3256 6.89232 18.4154L1.85386 32.3615L0.269232 33.8462ZM19.7308 33.8462L18.1462 32.3615L13.1077 18.4154C13.4154 18.3256 13.7135 18.2122 14.0019 18.075C14.2904 17.9378 14.5692 17.7513 14.8385 17.5154L20 31.7538L19.7308 33.8462ZM10 15C8.61539 15 7.4359 14.5128 6.46154 13.5385C5.48718 12.5641 5 11.3846 5 10C5 8.7 5.40705 7.61218 6.22115 6.73654C7.03526 5.86089 7.96154 5.33846 9 5.16923V0H11V5.16923C12.0385 5.33846 12.9648 5.86089 13.7789 6.73654C14.593 7.61218 15 8.7 15 10C15 11.3846 14.5128 12.5641 13.5385 13.5385C12.5641 14.5128 11.3846 15 10 15ZM10 13C10.8231 13 11.5288 12.7058 12.1173 12.1173C12.7058 11.5288 13 10.8231 13 10C13 9.17692 12.7058 8.47116 12.1173 7.8827C11.5288 7.29424 10.8231 7.00001 10 7.00001C9.17693 7.00001 8.47116 7.29424 7.8827 7.8827C7.29424 8.47116 7.00001 9.17692 7.00001 10C7.00001 10.8231 7.29424 11.5288 7.8827 12.1173C8.47116 12.7058 9.17693 13 10 13Z" fill="currentColor"/>
-      </svg>
-    ),
-  },
-  {
     id: "me",
     label: "Mechanical",
     code: "ME",
@@ -125,9 +115,9 @@ export default function Onboarding() {
   const hasBranch = !!user?.branch;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF" }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF" }}>
       {/* Header */}
-      <header className="flex items-center justify-center relative border-b border-[#201F22] h-[89px] flex-shrink-0 px-6">
+      <header className="flex items-center justify-center relative border-b border-[#201F22] h-16 md:h-20 flex-shrink-0 px-6">
         {hasBranch && (
           <button onClick={() => navigate(-1)} className="absolute left-8 md:left-12 flex items-center justify-center w-10 h-10 rounded-xl hover:bg-white/5 transition-colors">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -149,22 +139,22 @@ export default function Onboarding() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 md:py-16">
+      <main className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-4 overflow-y-auto">
         {/* Titles */}
-        <div className="flex flex-col items-center gap-4 mb-12 md:mb-16">
+        <div className="flex flex-col items-center gap-2 mb-6 md:mb-8">
           <h1
-            className="text-[#E5E1E4] text-center font-['Geist'] font-normal text-4xl md:text-5xl leading-[1.25] tracking-[-1.2px]"
+            className="text-[#E5E1E4] text-center font-sans font-normal text-3xl md:text-4xl leading-[1.25] tracking-[-1.2px]"
           >
             Choose Your Path.
           </h1>
-          <p className="text-[#C2C6D6] text-center font-['Geist'] font-normal text-base leading-6 max-w-[600px]">
+          <p className="text-[#C2C6D6] text-center font-sans font-normal text-sm md:text-base leading-6 max-w-[600px]">
             Select your primary engineering discipline to configure your terminal workspace
             and initialize curriculum data.
           </p>
         </div>
 
         {/* Branch Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-[1024px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full max-w-[900px]">
           {branches.map((branch) => {
             const isSelected = selected === branch.id;
             return (
@@ -178,8 +168,8 @@ export default function Onboarding() {
                   }
                 }}
                 className={[
-                  "relative flex flex-col items-center justify-center gap-6 rounded-lg overflow-hidden",
-                  "min-h-[220px] md:min-h-[262px] p-12 md:p-16",
+                  "relative flex flex-col items-center justify-center gap-3 rounded-lg overflow-hidden",
+                  "min-h-[130px] md:min-h-[150px] p-6 md:p-8",
                   "transition-all duration-200 cursor-pointer",
                   "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF]",
                   isSelected
@@ -213,7 +203,7 @@ export default function Onboarding() {
 
                 {/* Label + Badge */}
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-[#E5E1E4] font-['Geist'] font-normal text-xl leading-[30px] text-center">
+                  <span className="text-[#E5E1E4] font-sans font-normal text-xl leading-[30px] text-center">
                     {branch.label}
                   </span>
                   <span
@@ -234,7 +224,7 @@ export default function Onboarding() {
       </main>
 
       {/* Footer Action Area */}
-      <footer className="flex flex-col items-center gap-3 px-6 py-6 md:py-7 flex-shrink-0">
+      <footer className="flex flex-col items-center gap-2 px-6 py-3 md:py-4 flex-shrink-0">
         {error && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
             {error}
@@ -243,7 +233,7 @@ export default function Onboarding() {
         <button
           onClick={handleInitialize}
           disabled={busy}
-          className="relative flex items-center gap-4 rounded-[4px] px-10 md:px-16 py-5 md:py-6 overflow-hidden transition-opacity hover:opacity-90 active:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF] disabled:opacity-60"
+          className="relative flex items-center gap-4 rounded-[4px] px-10 md:px-16 py-4 md:py-5 overflow-hidden transition-opacity hover:opacity-90 active:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF] disabled:opacity-60"
           style={{
             background: "linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%)",
             boxShadow: "0 0 15px 0 rgba(173, 198, 255, 0.20)",
@@ -253,7 +243,7 @@ export default function Onboarding() {
             className="absolute inset-0 rounded-[4px]"
             style={{ background: "rgba(255,255,255,0.10)" }}
           />
-          <span className="relative font-['Geist'] font-bold text-[13px] leading-[19.5px] tracking-[2.6px] uppercase text-white">
+          <span className="relative font-sans font-bold text-[13px] leading-[19.5px] tracking-[2.6px] uppercase text-white">
             {busy ? "SAVING…" : "INITIALIZE QUEST"}
           </span>
           <svg className="relative" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
