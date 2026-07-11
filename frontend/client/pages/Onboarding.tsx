@@ -139,22 +139,22 @@ export default function Onboarding() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-4 overflow-y-auto">
+      <main className="flex-1 min-h-0 flex flex-col items-center px-6 pt-4 pb-4 overflow-y-auto">
         {/* Titles */}
-        <div className="flex flex-col items-center gap-2 mb-6 md:mb-8">
+        <div className="flex flex-col items-center gap-3 mb-6 md:mb-8">
           <h1
-            className="text-[#E5E1E4] text-center font-sans font-normal text-3xl md:text-4xl leading-[1.25] tracking-[-1.2px]"
+            className="text-[#E5E1E4] text-center font-sans font-normal text-4xl md:text-5xl leading-[1.25] tracking-[-1.2px]"
           >
             Choose Your Path.
           </h1>
-          <p className="text-[#C2C6D6] text-center font-sans font-normal text-sm md:text-base leading-6 max-w-[600px]">
+          <p className="text-[#C2C6D6] text-center font-sans font-normal text-base leading-6 max-w-[600px]">
             Select your primary engineering discipline to configure your terminal workspace
             and initialize curriculum data.
           </p>
         </div>
 
         {/* Branch Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full max-w-[900px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-[1024px]">
           {branches.map((branch) => {
             const isSelected = selected === branch.id;
             return (
@@ -168,8 +168,8 @@ export default function Onboarding() {
                   }
                 }}
                 className={[
-                  "relative flex flex-col items-center justify-center gap-3 rounded-lg overflow-hidden",
-                  "min-h-[130px] md:min-h-[150px] p-6 md:p-8",
+                  "relative flex flex-col items-center justify-center gap-6 rounded-lg overflow-hidden",
+                  "min-h-[220px] md:min-h-[262px] p-12 md:p-16",
                   "transition-all duration-200 cursor-pointer",
                   "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF]",
                   isSelected

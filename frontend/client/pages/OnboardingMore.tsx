@@ -13,7 +13,6 @@ const disciplines = [
   "Chemical",
   "Chemistry",
   "Civil",
-  "Data Science & AI",
   "Engineering Sciences",
   "Environmental",
   "Geomatics",
