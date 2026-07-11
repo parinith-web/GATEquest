@@ -323,21 +323,22 @@ export default function Index() {
             </div>
 
             {/* Current Level */}
-            <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px] overflow-hidden relative">
-              {/* Decorative rotated ring */}
-              <div className="absolute bottom-[-38px] right-[-44px] w-[102px] h-[102px] rotate-45 rounded-[13px] border-[8px] border-[#888] opacity-60 pointer-events-none" />
+            <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px]">
               <span className="text-gq-text-secondary text-[15px]">Current Level</span>
-              <div className="flex items-end justify-between">
-                <span className="text-white text-[45px] font-bold leading-[54px]">
+              <div className="flex flex-col gap-1">
+                <span className="text-white text-[32px] font-bold leading-[38px]">
                   {activityLoading ? "–" : levelProgress.level}
                 </span>
-                <span className="text-gq-blue text-[15px] pb-1">
-                  {activityLoading ? "" : `${Math.round(levelProgress.percentToNextLevel)}% to next`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <TrendUpIcon />
+                  <span className="text-gq-blue text-[15px]">
+                    {activityLoading ? "" : `${Math.round(levelProgress.percentToNextLevel)}% to next`}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Global Rank */}
+            {/* Rank */}
             <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px]">
               <span className="text-gq-text-secondary text-[15px]">Rank</span>
               <div className="flex flex-col gap-1">
@@ -345,18 +346,14 @@ export default function Index() {
                   {questLoading ? "–" : latestResult ? `#${latestResult.result.rank}` : "Unranked"}
                 </span>
                 <div className="flex items-center gap-2">
-                  {latestResult ? (
-                    <>
-                      <TrendUpIcon />
-                      <span className="text-gq-blue text-[15px]">
-                        Weekly Quest #{latestResult.quest.weekNumber}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-gq-text-muted text-[15px]">
-                      {questLoading ? "" : "Join a quest to get ranked"}
-                    </span>
-                  )}
+                  <TrendUpIcon />
+                  <span className="text-gq-blue text-[15px]">
+                    {questLoading
+                      ? ""
+                      : latestResult
+                        ? `Weekly Quest #${latestResult.quest.weekNumber}`
+                        : "Join a quest to get ranked"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -609,24 +606,6 @@ export default function Index() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Daily Quests Banner */}
-          <div className="flex items-center justify-between px-4 py-4 bg-gq-card border-l-4 border-gq-blue rounded-r-[8px] gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-[#201F1F] rounded-xl p-2 shrink-0">
-                <svg width="21" height="22" viewBox="0 0 37 38" fill="none">
-                  <path d="M10 28C9.45 28 8.97917 27.8042 8.5875 27.4125C8.19583 27.0208 8 26.55 8 26V12C8 11.45 8.19583 10.9792 8.5875 10.5875C8.97917 10.1958 9.45 10 10 10H11V8H13V10H21V8H23V10H24C24.55 10 25.0208 10.1958 25.4125 10.5875C25.8042 10.9792 26 11.45 26 12V18H24V16H10V26H17V28H10ZM24 30C22.7833 30 21.7208 29.6208 20.8125 28.8625C19.9042 28.1042 19.3333 27.15 19.1 26H20.65C20.8667 26.7333 21.2792 27.3333 21.8875 27.8C22.4958 28.2667 23.2 28.5 24 28.5C24.9667 28.5 25.7917 28.1583 26.475 27.475C27.1583 26.7917 27.5 25.9667 27.5 25C27.5 24.0333 27.1583 23.2083 26.475 22.525C25.7917 21.8417 24.9667 21.5 24 21.5C23.5167 21.5 23.0667 21.5875 22.65 21.7625C22.2333 21.9375 21.8667 22.1833 21.55 22.5H23V24H19V20H20.5V21.425C20.95 20.9917 21.475 20.6458 22.075 20.3875C22.675 20.1292 23.3167 20 24 20C25.3833 20 26.5625 20.4875 27.5375 21.4625C28.5125 22.4375 29 23.6167 29 25C29 26.3833 28.5125 27.5625 27.5375 28.5375C26.5625 29.5125 25.3833 30 24 30ZM10 14H24V12H10V14Z" fill="#5DA2FA"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-white text-[14px] font-semibold">Daily Quests</p>
-                <p className="text-gq-text-muted text-[12px]">You have 3 goals remaining for today.</p>
-              </div>
-            </div>
-            <button className="text-gq-blue text-[12px] font-bold tracking-[0.6px] uppercase hover:text-white transition-colors shrink-0">
-              View All
-            </button>
           </div>
       </div>
     </Layout>
