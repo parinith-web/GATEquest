@@ -226,23 +226,15 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
 
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gq-border pb-3">
-        <div className="flex items-center gap-2">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M0 8V0H8V8H0ZM0 18V10H8V18H0ZM10 8V0H18V8H10ZM10 18V10H18V18H10ZM2 6H6V2H2V6ZM12 6H16V2H12V6ZM12 16H16V12H12V16ZM2 16H6V12H2V16Z" fill="#ADC6FF"/>
-          </svg>
-          <span className="text-base text-gq-text-primary">Activity Map</span>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-xs text-gq-text-secondary">
-          <span>
-            ACTIVE DAYS: <span className="text-gq-accent font-bold">{activeDays}</span>
-          </span>
-          <span className="text-gq-border">|</span>
-          <span>
-            MAX STREAK: <span className="text-gq-accent font-bold">{maxStreak}</span>
-          </span>
-        </div>
+      {/* Active days / max streak */}
+      <div className="flex flex-wrap items-center justify-end gap-4 font-mono text-xs text-gq-text-secondary">
+        <span>
+          ACTIVE DAYS: <span className="text-gq-accent font-bold">{activeDays}</span>
+        </span>
+        <span className="text-gq-border">|</span>
+        <span>
+          MAX STREAK: <span className="text-gq-accent font-bold">{maxStreak}</span>
+        </span>
       </div>
 
       {/* Contribution count, LeetCode-style */}
@@ -372,7 +364,7 @@ interface SolveCounterProps {
 }
 
 const DIFFICULTY_COLORS = {
-  easy: "#2DD4BF",
+  easy: "#60A5FA",
   medium: "#EAB308",
   hard: "#EF4444",
 } as const;
@@ -452,14 +444,7 @@ function SolveCounter({ progress }: SolveCounterProps) {
   ];
 
   return (
-    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M10 20C8.61667 20 7.31667 19.7375 6.1 19.2125C4.88333 18.6875 3.825 17.975 2.925 17.075C2.025 16.175 1.3125 15.1167 0.7875 13.9C0.2625 12.6833 0 11.3833 0 10C0 8.61667 0.2625 7.31667 0.7875 6.1C1.3125 4.88333 2.025 3.825 2.925 2.925C3.825 2.025 4.88333 1.3125 6.1 0.7875C7.31667 0.2625 8.61667 0 10 0C11.3833 0 12.6833 0.2625 13.9 0.7875C15.1167 1.3125 16.175 2.025 17.075 2.925C17.975 3.825 18.6875 4.88333 19.2125 6.1C19.7375 7.31667 20 8.61667 20 10C20 11.3833 19.7375 12.6833 19.2125 13.9C18.6875 15.1167 17.975 16.175 17.075 17.075C16.175 17.975 15.1167 18.6875 13.9 19.2125C12.6833 19.7375 11.3833 20 10 20ZM10 18C10.9333 18 11.8125 17.8542 12.6375 17.5625C13.4625 17.2708 14.2167 16.8583 14.9 16.325L13.475 14.9C12.9917 15.25 12.4542 15.5208 11.8625 15.7125C11.2708 15.9042 10.65 16 10 16C8.33333 16 6.91667 15.4167 5.75 14.25C4.58333 13.0833 4 11.6667 4 10C4 8.33333 4.58333 6.91667 5.75 5.75C6.91667 4.58333 8.33333 4 10 4C11.6667 4 13.0833 4.58333 14.25 5.75C15.4167 6.91667 16 8.33333 16 10C16 10.65 15.9 11.275 15.7 11.875C15.5 12.475 15.225 13.0167 14.875 13.5L16.3 14.925C16.8333 14.2417 17.25 13.4833 17.55 12.65C17.85 11.8167 18 10.9333 18 10C18 7.76667 17.225 5.875 15.675 4.325C14.125 2.775 12.2333 2 10 2C7.76667 2 5.875 2.775 4.325 4.325C2.775 5.875 2 7.76667 2 10C2 12.2333 2.775 14.125 4.325 15.675C5.875 17.225 7.76667 18 10 18Z" fill="#ADC6FF"/>
-        </svg>
-        <span className="text-base text-gq-text-primary">Questions Solved</span>
-      </div>
-
+    <section className="h-full flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
       <div className="flex-1 flex flex-col sm:flex-row items-center gap-6">
         <div className="relative w-full max-w-[180px] mx-auto aspect-square flex-shrink-0">
           <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full -rotate-90">
@@ -558,22 +543,9 @@ function Badges() {
     },
   ];
 
-  const LockIcon = () => (
-    <svg width="20" height="27" viewBox="0 0 20 27" fill="none">
-      <path d="M2.5 26.25C1.8125 26.25 1.22396 26.0052 0.734375 25.5156C0.244792 25.026 0 24.4375 0 23.75V11.25C0 10.5625 0.244792 9.97396 0.734375 9.48438C1.22396 8.99479 1.8125 8.75 2.5 8.75H3.75V6.25C3.75 4.52083 4.35938 3.04688 5.57812 1.82812C6.79688 0.609375 8.27083 0 10 0C11.7292 0 13.2031 0.609375 14.4219 1.82812C15.6406 3.04688 16.25 4.52083 16.25 6.25V8.75H17.5C18.1875 8.75 18.776 8.99479 19.2656 9.48438C19.7552 9.97396 20 10.5625 20 11.25V23.75C20 24.4375 19.7552 25.026 19.2656 25.5156C18.776 26.0052 18.1875 26.25 17.5 26.25H2.5ZM2.5 23.75H17.5V11.25H2.5V23.75ZM10 20C10.6875 20 11.276 19.7552 11.7656 19.2656C12.2552 18.776 12.5 18.1875 12.5 17.5C12.5 16.8125 12.2552 16.224 11.7656 15.7344C11.276 15.2448 10.6875 15 10 15C9.3125 15 8.72396 15.2448 8.23438 15.7344C7.74479 16.224 7.5 16.8125 7.5 17.5C7.5 18.1875 7.74479 18.776 8.23438 19.2656C8.72396 19.7552 9.3125 20 10 20ZM6.25 8.75H13.75V6.25C13.75 5.20833 13.3854 4.32292 12.6562 3.59375C11.9271 2.86458 11.0417 2.5 10 2.5C8.95833 2.5 8.07292 2.86458 7.34375 3.59375C6.61458 4.32292 6.25 5.20833 6.25 6.25V8.75Z" fill="#E5E2E1"/>
-    </svg>
-  );
-
   return (
-    <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      <div className="flex items-center gap-2 border-b border-gq-border pb-3">
-        <svg width="10" height="20" viewBox="0 0 10 20" fill="none">
-          <path d="M0 0H10V7.85C10 8.23333 9.91667 8.575 9.75 8.875C9.58333 9.175 9.35 9.41667 9.05 9.6L5.5 11.7L6.2 14H10L6.9 16.2L8.1 20L5 17.65L1.9 20L3.1 16.2L0 14H3.8L4.5 11.7L0.95 9.6C0.65 9.41667 0.416667 9.175 0.25 8.875C0.0833333 8.575 0 8.23333 0 7.85V0ZM2 2V7.85L4 9.05V2H2ZM8 2H6V9.05L8 7.85V2Z" fill="#ADC6FF"/>
-        </svg>
-        <span className="text-base text-gq-text-primary">Badges</span>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <section className="h-full flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 content-center">
         {badges.map((badge, i) => (
           <div
             key={i}
@@ -594,9 +566,7 @@ function Badges() {
           <div
             key={`empty-${i}`}
             className="flex items-center justify-center h-28 rounded-[4px] border border-dashed border-gq-accent/30 opacity-30"
-          >
-            <LockIcon />
-          </div>
+          />
         ))}
       </div>
     </section>
