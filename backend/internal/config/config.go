@@ -40,6 +40,12 @@ type Config struct {
 	RPID          string   // e.g. "localhost" in dev, "gatequest.com" in prod
 	RPDisplayName string   // e.g. "GATEquest"
 	RPOrigins     []string // e.g. ["http://localhost:8080"]
+
+	// RedisURL is the connection string for the Redis instance backing
+	// live quest leaderboards (e.g. Upstash's "Redis Connect" URL, or
+	// redis://localhost:6379 for local dev). Not required for the rest
+	// of the app to function — only quest endpoints need it.
+	RedisURL string
 }
 
 func mustEnv(warnings *[]string, key, fallback string) string {
@@ -82,6 +88,11 @@ func Load() (*Config, []string) {
 	} else {
 		cfg.RPOrigins = strings.Split(origins, ",")
 	}
+
+	// Optional: quest endpoints degrade to "unavailable" rather than the
+	// whole server failing to start if this is unset, since it's only
+	// needed once weekly contests are in use.
+	cfg.RedisURL = mustEnv(&missing, "REDIS_URL", "redis://localhost:6379")
 
 	return cfg, missing
 }

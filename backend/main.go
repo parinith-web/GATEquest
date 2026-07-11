@@ -12,6 +12,7 @@ import (
 	"gatequest-auth/internal/api"
 	"gatequest-auth/internal/auth"
 	"gatequest-auth/internal/config"
+	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -69,6 +70,22 @@ func main() {
 	}
 	defer st.Close()
 	log.Print("connected to database")
+
+	questRedis, err := quest.NewRedis(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("failed to parse REDIS_URL: %v", err)
+	}
+	pingCtx, cancelPing := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := questRedis.Ping(pingCtx); err != nil {
+		// Non-fatal: the rest of the app (auth, question bank, profile)
+		// doesn't depend on Redis. Only quest endpoints will fail until
+		// this is reachable — logged loudly so that's not a surprise.
+		log.Printf("WARNING: could not reach Redis at startup (%v) — live quest leaderboards will not work until this is fixed", err)
+	} else {
+		log.Print("connected to redis")
+	}
+	cancelPing()
+	defer questRedis.Close()
 
 	mgr := auth.NewManager(st, cfg)
 	apiHandlers := api.New(st)
