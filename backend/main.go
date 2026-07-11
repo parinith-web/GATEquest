@@ -12,6 +12,7 @@ import (
 	"gatequest-auth/internal/api"
 	"gatequest-auth/internal/auth"
 	"gatequest-auth/internal/config"
+	"gatequest-auth/internal/media"
 	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
 
@@ -89,7 +90,11 @@ func main() {
 
 	mgr := auth.NewManager(st, cfg)
 	questSvc := quest.NewService(st, questRedis)
-	apiHandlers := api.New(st, questSvc)
+	mediaClient := media.New(cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret)
+	if !mediaClient.Configured() {
+		log.Print("WARNING: CLOUDINARY_URL not set — Pulse media upload will return 503 until it is")
+	}
+	apiHandlers := api.New(st, questSvc, mediaClient)
 
 	waHandlers, err := auth.NewWebAuthnHandlers(mgr)
 	if err != nil {
@@ -175,6 +180,11 @@ func main() {
 		r.Post("/api/pulse/posts/{id}/bookmark", apiHandlers.BookmarkPost)
 		r.Delete("/api/pulse/posts/{id}/bookmark", apiHandlers.UnbookmarkPost)
 		r.Get("/api/pulse/bookmarks", apiHandlers.ListBookmarks)
+
+		// Pulse media upload (session 5): the compose box uploads a
+		// file here first and gets back a URL to attach to the post,
+		// rather than sending the raw bytes as part of CreatePost.
+		r.Post("/api/pulse/upload", apiHandlers.UploadMedia)
 	})
 
 	// Question bank: public read-only endpoints, no auth required for

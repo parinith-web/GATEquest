@@ -46,6 +46,18 @@ type Config struct {
 	// redis://localhost:6379 for local dev). Not required for the rest
 	// of the app to function — only quest endpoints need it.
 	RedisURL string
+
+	// Cloudinary (session 5): backs real image/video upload for Pulse
+	// posts, replacing the old base64-data-URI-in-Postgres approach.
+	// Parsed from CLOUDINARY_URL (the single connection-string env var
+	// Cloudinary's own dashboard gives you — "Account Details" > "API
+	// Environment variable"), so setup is a single copy-paste. Optional:
+	// if unset, /api/pulse/upload returns a clear 503 instead of the
+	// server failing to start, since the rest of Pulse works fine
+	// without it (posts can still be text-only).
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
 }
 
 func mustEnv(warnings *[]string, key, fallback string) string {
@@ -94,12 +106,50 @@ func Load() (*Config, []string) {
 	// needed once weekly contests are in use.
 	cfg.RedisURL = mustEnv(&missing, "REDIS_URL", "redis://localhost:6379")
 
+	// Optional, like Redis above: unset just means /api/pulse/upload
+	// answers with a friendly "not configured" error instead of the
+	// process refusing to start.
+	cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret = parseCloudinaryURL(os.Getenv("CLOUDINARY_URL"))
+
 	return cfg, missing
+}
+
+// parseCloudinaryURL reads Cloudinary's own connection-string format,
+// cloudinary://<api_key>:<api_secret>@<cloud_name>, so setup is a single
+// copy-paste from the Cloudinary dashboard rather than three separate
+// env vars to keep in sync. Returns empty strings (not an error) if
+// unset or malformed — the upload endpoint checks for that and answers
+// with a clear message rather than the server crashing over an
+// optional integration.
+func parseCloudinaryURL(raw string) (cloudName, apiKey, apiSecret string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", ""
+	}
+	const prefix = "cloudinary://"
+	if !strings.HasPrefix(raw, prefix) {
+		return "", "", ""
+	}
+	rest := strings.TrimPrefix(raw, prefix)
+	at := strings.LastIndex(rest, "@")
+	if at < 0 {
+		return "", "", ""
+	}
+	creds, cloud := rest[:at], rest[at+1:]
+	colon := strings.Index(creds, ":")
+	if colon < 0 {
+		return "", "", ""
+	}
+	key, secret := creds[:colon], creds[colon+1:]
+	if key == "" || secret == "" || cloud == "" {
+		return "", "", ""
+	}
+	return cloud, key, secret
 }
 
 func (c *Config) String() string {
 	return fmt.Sprintf(
-		"port=%s frontend=%s rpid=%s origins=%v google_client_id_set=%v",
-		c.Port, c.FrontendURL, c.RPID, c.RPOrigins, c.GoogleClientID != "",
+		"port=%s frontend=%s rpid=%s origins=%v google_client_id_set=%v cloudinary_configured=%v",
+		c.Port, c.FrontendURL, c.RPID, c.RPOrigins, c.GoogleClientID != "", c.CloudinaryCloudName != "",
 	)
 }

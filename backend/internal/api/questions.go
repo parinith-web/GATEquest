@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"gatequest-auth/internal/media"
 	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
 
@@ -19,10 +20,14 @@ import (
 type Handlers struct {
 	Store *store.Store
 	Quest *quest.Service
+	// Media is nil-safe to call Configured() on but nil itself is never
+	// passed in — see api.New, which always constructs one (possibly
+	// unconfigured, if Cloudinary env vars are unset).
+	Media *media.Cloudinary
 }
 
-func New(st *store.Store, questSvc *quest.Service) *Handlers {
-	return &Handlers{Store: st, Quest: questSvc}
+func New(st *store.Store, questSvc *quest.Service, mediaClient *media.Cloudinary) *Handlers {
+	return &Handlers{Store: st, Quest: questSvc, Media: mediaClient}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

@@ -9,8 +9,7 @@ import {
   TrendingUp,
   RefreshCw,
   Cpu,
-  BarChart3,
-  Image as ImageIcon,
+  Film,
   X,
   Loader2,
 } from "lucide-react";
@@ -18,7 +17,6 @@ import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
 import PostCard from "@/components/PostCard";
 import { useAuth } from "@/lib/auth-context";
-import { fileToImageDataURL } from "@/lib/image";
 import {
   ChannelCount,
   PulsePost,
@@ -28,6 +26,8 @@ import {
   fetchPulseBookmarks,
   fetchPulseChannels,
   fetchPulseFeed,
+  fetchPulseTrending,
+  uploadPulseMedia,
 } from "@/lib/pulse-api";
 
 const PAGE_SIZE = 20;
@@ -48,13 +48,22 @@ export default function PulsePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [channels, setChannels] = useState<ChannelCount[]>([]);
+  const [trending, setTrending] = useState<ChannelCount[]>([]);
 
   // Compose box state
   const [composeText, setComposeText] = useState("");
-  const [composeImage, setComposeImage] = useState<string | null>(null);
+  const [composeMediaUrl, setComposeMediaUrl] = useState<string | null>(null);
+  const [composeMediaType, setComposeMediaType] = useState<"image" | "video" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [posting, setPosting] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Infinite-scroll sentinel — observed below, see the effect further
+  // down. Kept alongside the Load More button rather than replacing it:
+  // the button still works as a manual/no-JS-observer fallback.
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const loadFeed = useCallback(
     async (opts: { hashtag: string | null; sort: PulseSort; offset: number }) => {
@@ -133,9 +142,38 @@ export default function PulsePage() {
       });
   }, []);
 
+  // Trending (last 48h) sidebar card, loaded once and refreshed
+  // alongside channels after a new post goes up.
+  const loadTrending = useCallback(() => {
+    fetchPulseTrending(5)
+      .then(setTrending)
+      .catch(() => {
+        /* sidebar is non-critical — fail silently */
+      });
+  }, []);
+
   useEffect(() => {
     loadChannels();
-  }, [loadChannels]);
+    loadTrending();
+  }, [loadChannels, loadTrending]);
+
+  // Infinite scroll: auto-trigger the same load-more path as the button
+  // once the sentinel at the bottom of the feed scrolls into view. The
+  // button stays visible too — this only saves the click, it doesn't
+  // replace the affordance.
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || loading || loadingMore || posts.length >= total) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) handleLoadMore();
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadingMore, posts.length, total, viewMode, sortMode, activeHashtag]);
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -162,25 +200,31 @@ export default function PulsePage() {
     setActiveHashtag((current) => (current === tag ? null : tag));
   };
 
-  const handleImagePick = async (file: File) => {
+  const handleMediaPick = async (file: File) => {
+    setComposeError(null);
+    setUploading(true);
+    setUploadProgress(0);
     try {
-      const dataUrl = await fileToImageDataURL(file);
-      setComposeImage(dataUrl);
+      const result = await uploadPulseMedia(file, setUploadProgress);
+      setComposeMediaUrl(result.url);
+      setComposeMediaType(result.mediaType);
     } catch (err) {
-      setComposeError(err instanceof Error ? err.message : "Could not attach that image");
+      setComposeError(err instanceof Error ? err.message : "Could not upload that file");
+    } finally {
+      setUploading(false);
     }
   };
 
   const handlePost = async () => {
     const content = composeText.trim();
-    if (!content) return;
+    if (!content || uploading) return;
     setPosting(true);
     setComposeError(null);
     try {
       const created = await createPulsePost({
         content,
-        mediaUrl: composeImage ?? undefined,
-        mediaType: composeImage ? "image" : undefined,
+        mediaUrl: composeMediaUrl ?? undefined,
+        mediaType: composeMediaType ?? undefined,
       });
       // New post always lands at the top regardless of current sort —
       // it's the newest and (for hot/top) starts at 0 net votes, which
@@ -188,8 +232,10 @@ export default function PulsePage() {
       setPosts((prev) => [created, ...prev]);
       setTotal((t) => t + 1);
       setComposeText("");
-      setComposeImage(null);
+      setComposeMediaUrl(null);
+      setComposeMediaType(null);
       loadChannels();
+      loadTrending();
     } catch (err) {
       setComposeError(err instanceof Error ? err.message : "Failed to publish post");
     } finally {
@@ -236,6 +282,40 @@ export default function PulsePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left panel: Channels & Tools */}
           <div className="lg:col-span-3 flex flex-col gap-6">
+            {/* Trending Card */}
+            {trending.length > 0 && (
+              <div className="border border-pulse-border rounded-lg bg-pulse-card p-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <TrendingUp size={11} className="text-pulse-dim" />
+                  <span className="text-[11px] font-mono uppercase tracking-[1px] text-pulse-dim">
+                    TRENDING · 48H
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {trending.map((t, i) => (
+                    <button
+                      key={t.hashtag}
+                      onClick={() => handleHashtagClick(t.hashtag)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2 rounded text-[12px] font-mono transition-colors text-left",
+                        activeHashtag === t.hashtag && viewMode === "feed"
+                          ? "text-pulse-blue bg-pulse-blue/5 border-l-2 border-pulse-blue pl-2"
+                          : "text-pulse-muted hover:text-pulse-text hover:bg-gq-card"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-pulse-dim w-3">
+                          {i + 1}
+                        </span>
+                        {t.hashtag}
+                      </div>
+                      <span className="text-[10px] text-pulse-dim">{t.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Channels Card */}
             <div className="border border-pulse-border rounded-lg bg-pulse-card p-5">
               <button className="flex items-center justify-between w-full mb-3 text-left">
@@ -285,10 +365,6 @@ export default function PulsePage() {
                 <Users size={14} className="text-pulse-dim" />
                 STUDY ROOMS
               </button>
-              <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-mono tracking-[0.8px] uppercase text-pulse-muted hover:text-pulse-text hover:bg-gq-card text-left transition-colors">
-                <BarChart3 size={14} className="text-pulse-dim" />
-                TRENDING
-              </button>
               <button
                 onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
                 className={cn(
@@ -330,15 +406,46 @@ export default function PulsePage() {
                   />
                 </div>
 
-                {composeImage && (
+                {uploading && (
+                  <div className="flex items-center gap-2 w-fit px-3 py-2 rounded-md border border-pulse-border bg-pulse-card">
+                    <Loader2 size={13} className="animate-spin text-pulse-blue" />
+                    <span className="text-[11px] font-mono text-pulse-muted">
+                      Uploading... {uploadProgress}%
+                    </span>
+                  </div>
+                )}
+
+                {!uploading && composeMediaUrl && composeMediaType === "image" && (
                   <div className="relative w-fit">
                     <img
-                      src={composeImage}
+                      src={composeMediaUrl}
                       alt=""
                       className="max-h-[200px] rounded-md border border-pulse-border"
                     />
                     <button
-                      onClick={() => setComposeImage(null)}
+                      onClick={() => {
+                        setComposeMediaUrl(null);
+                        setComposeMediaType(null);
+                      }}
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-pulse-card border border-pulse-border flex items-center justify-center text-pulse-muted hover:text-pulse-red"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+
+                {!uploading && composeMediaUrl && composeMediaType === "video" && (
+                  <div className="relative w-fit">
+                    <video
+                      src={composeMediaUrl}
+                      controls
+                      className="max-h-[200px] rounded-md border border-pulse-border"
+                    />
+                    <button
+                      onClick={() => {
+                        setComposeMediaUrl(null);
+                        setComposeMediaType(null);
+                      }}
                       className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-pulse-card border border-pulse-border flex items-center justify-center text-pulse-muted hover:text-pulse-red"
                     >
                       <X size={12} />
@@ -355,22 +462,23 @@ export default function PulsePage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,video/*"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleImagePick(file);
+                        if (file) handleMediaPick(file);
                         e.target.value = "";
                       }}
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-pulse-muted hover:text-pulse-blue hover:bg-pulse-blue/5 transition-colors"
-                      title="Attach an image"
+                      disabled={uploading}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-pulse-muted hover:text-pulse-blue hover:bg-pulse-blue/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Attach an image or video"
                     >
-                      <ImageIcon size={14} />
+                      <Film size={14} />
                       <span className="text-[11px] font-mono uppercase tracking-[0.5px]">
-                        IMAGE
+                        MEDIA
                       </span>
                     </button>
                     <span className="text-[10px] font-mono text-pulse-dim">
@@ -379,10 +487,10 @@ export default function PulsePage() {
                   </div>
                   <button
                     onClick={handlePost}
-                    disabled={!composeText.trim() || posting}
+                    disabled={!composeText.trim() || posting || uploading}
                     className={cn(
                       "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-[0.6px] transition-colors",
-                      composeText.trim() && !posting
+                      composeText.trim() && !posting && !uploading
                         ? "bg-pulse-blue text-white hover:opacity-90"
                         : "bg-pulse-border text-pulse-dim cursor-not-allowed"
                     )}
@@ -488,11 +596,25 @@ export default function PulsePage() {
 
             {/* Feed states */}
             {loading && (
-              <div className="flex items-center justify-center gap-2 py-16 text-pulse-muted">
-                <Loader2 size={16} className="animate-spin" />
-                <span className="text-[12px] font-mono uppercase tracking-[0.5px]">
-                  {viewMode === "bookmarks" ? "Loading bookmarks..." : "Loading feed..."}
-                </span>
+              <div className="flex flex-col gap-6">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="border border-pulse-border rounded-lg bg-pulse-card p-4 flex flex-col gap-3 animate-pulse"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-sm bg-pulse-border" />
+                      <div className="flex flex-col gap-1.5">
+                        <div className="w-24 h-2.5 rounded bg-pulse-border" />
+                        <div className="w-16 h-2 rounded bg-pulse-border" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="w-full h-2.5 rounded bg-pulse-border" />
+                      <div className="w-3/4 h-2.5 rounded bg-pulse-border" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -536,22 +658,27 @@ export default function PulsePage() {
               </div>
             )}
 
-            {/* Load More */}
+            {/* Load More — also doubles as the infinite-scroll sentinel;
+                the observer above fires handleLoadMore once this div
+                scrolls near the viewport, so in practice this mostly
+                shows the loading state rather than needing a click. */}
             {!loading && !error && hasMore && (
-              <button
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="flex items-center justify-center gap-2 py-4 border border-dashed border-pulse-border rounded-lg text-pulse-muted hover:text-pulse-text hover:border-pulse-muted transition-colors"
-              >
-                {loadingMore ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={12} />
-                )}
-                <span className="text-[12px] font-mono uppercase tracking-[0.6px]">
-                  {loadingMore ? "LOADING..." : "LOAD MORE NODES"}
-                </span>
-              </button>
+              <div ref={loadMoreRef}>
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="flex items-center justify-center gap-2 py-4 border border-dashed border-pulse-border rounded-lg text-pulse-muted hover:text-pulse-text hover:border-pulse-muted transition-colors w-full"
+                >
+                  {loadingMore ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={12} />
+                  )}
+                  <span className="text-[12px] font-mono uppercase tracking-[0.6px]">
+                    {loadingMore ? "LOADING..." : "LOAD MORE NODES"}
+                  </span>
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -183,6 +183,61 @@ export async function sharePulsePost(id: string): Promise<{ shareCount: number }
   return jsonFetch(`${API_BASE}/pulse/posts/${id}/share`, { method: "POST" });
 }
 
+// --- Media upload (session 5) ----------------------------------------------
+// Files are uploaded to Cloudinary via the backend (see
+// backend/internal/api/pulse_media.go) rather than embedded as a base64
+// data URI in the post body — that kept the JSON payload huge and every
+// full-res photo landed straight in the Postgres row. This replaces
+// that: the compose box uploads the file first and gets back a real
+// URL to attach as mediaUrl on the post.
+
+export interface UploadMediaResult {
+  url: string;
+  mediaType: "image" | "video";
+}
+
+/**
+ * Uploads a file with progress reporting. Uses XMLHttpRequest instead
+ * of fetch because fetch has no upload-progress event — videos in
+ * particular can take a while, and a frozen-looking compose box reads
+ * as broken rather than working.
+ */
+export function uploadPulseMedia(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<UploadMediaResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/pulse/upload`);
+    xhr.withCredentials = true;
+
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+
+    xhr.onload = () => {
+      let body: any = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        /* fall through to status-based handling below */
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body) {
+        resolve({ url: body.url, mediaType: body.mediaType });
+      } else {
+        reject(new Error(body?.error ?? `Upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Upload failed — check your connection"));
+
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
+  });
+}
+
 // --- Display helpers ------------------------------------------------------
 
 /** "2h ago" / "5d ago" / "just now" style relative time for post cards. */
