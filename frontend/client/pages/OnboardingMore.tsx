@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { setBranch as apiSetBranch } from "@/lib/auth";
 
 const disciplines = [
   "Aerospace",
@@ -32,7 +34,14 @@ const disciplines = [
 
 export default function OnboardingMore() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { refresh, user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) navigate("/login", { replace: true });
+  }, [loading, user, navigate]);
 
   const toggle = (d: string) => {
     setSelected((prev) => {
@@ -45,9 +54,22 @@ export default function OnboardingMore() {
 
   const hasSelected = selected.size > 0;
 
-  const handleInitialize = () => {
-    if (hasSelected) {
-      navigate("/");
+  const handleInitialize = async () => {
+    if (!hasSelected || busy) return;
+    // A user can multi-select here (browsing interests), but the
+    // account only has one branch — the first pick becomes it, same
+    // convention as the single-select grid on /onboarding.
+    const [primary] = selected;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSetBranch(primary);
+      await refresh();
+      navigate("/onboarding/username");
+    } catch (err: any) {
+      setError(err?.message || "Couldn't save your branch. Please try again.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -126,18 +148,23 @@ export default function OnboardingMore() {
       </main>
 
       {/* Footer */}
-      <footer className="flex justify-center items-center py-6 px-6 shrink-0">
+      <footer className="flex flex-col items-center gap-3 py-6 px-6 shrink-0">
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        )}
         <button
           onClick={handleInitialize}
           className={cn(
             "flex items-center gap-4 px-16 py-6 rounded text-white text-[13px] font-bold tracking-[0.2em] uppercase transition-opacity duration-200 shadow-lg",
-            hasSelected
+            hasSelected && !busy
               ? "bg-blue-500 opacity-100 cursor-pointer hover:bg-blue-600"
               : "bg-blue-500 opacity-50 cursor-not-allowed"
           )}
-          disabled={!hasSelected}
+          disabled={!hasSelected || busy}
         >
-          INITIALIZE QUEST
+          {busy ? "SAVING…" : "INITIALIZE QUEST"}
           <svg
             width="14"
             height="14"

@@ -70,13 +70,14 @@ const MIN_GRID_WIDTH = 640;
 
 interface UserHeaderProps {
   name: string;
+  username: string;
   avatarUrl: string;
   uploading: boolean;
   onPickAvatar: () => void;
   xp: number;
 }
 
-function UserHeader({ name, avatarUrl, uploading, onPickAvatar, xp }: UserHeaderProps) {
+function UserHeader({ name, username, avatarUrl, uploading, onPickAvatar, xp }: UserHeaderProps) {
   const { level, title, xpIntoLevel, xpForNextLevel, percentToNextLevel } =
     getLevelProgress(xp);
 
@@ -119,6 +120,9 @@ function UserHeader({ name, avatarUrl, uploading, onPickAvatar, xp }: UserHeader
           <span className="text-gq-accent text-[22px] font-bold leading-none tracking-tight">
             {name}
           </span>
+          {username && (
+            <span className="font-mono text-sm text-gq-text-secondary">@{username}</span>
+          )}
           <div className="flex flex-wrap items-center gap-3 mt-1">
             <div className="px-3 py-1 bg-gq-rank-bg rounded-[2px]">
               <span className="font-bold text-xs tracking-widest text-[#AEB9D0] uppercase">
@@ -729,6 +733,7 @@ export default function ProfilePage() {
         {/* User identity header */}
         <UserHeader
           name={user?.name || user?.email || "Explorer"}
+          username={user?.username || ""}
           avatarUrl={user?.avatarUrl || ""}
           uploading={uploading}
           onPickAvatar={() => fileInputRef.current?.click()}

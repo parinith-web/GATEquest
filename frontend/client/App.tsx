@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import OnboardingMore from "./pages/OnboardingMore";
+import OnboardingUsername from "./pages/OnboardingUsername";
 import Quests from "./pages/Quests";
 import QuestDetail from "./pages/QuestDetail";
 import Problems from "./pages/Problems";
@@ -37,9 +38,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  const branch = localStorage.getItem("gatequest_branch");
-  if (!branch) {
+  // Onboarding state lives on the account itself (branch + username),
+  // not the browser — so it's enforced the same way no matter which
+  // device or browser the user signs in from.
+  if (!user.branch) {
     return <Navigate to="/onboarding" replace />;
+  }
+  if (!user.username) {
+    return <Navigate to="/onboarding/username" replace />;
   }
   return <>{children}</>;
 };
@@ -50,6 +56,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/onboarding" element={<Onboarding />} />
     <Route path="/onboarding/more" element={<OnboardingMore />} />
+    <Route path="/onboarding/username" element={<OnboardingUsername />} />
     <Route path="/quests" element={<ProtectedRoute><Quests /></ProtectedRoute>} />
     <Route path="/quests/:id" element={<ProtectedRoute><QuestDetail /></ProtectedRoute>} />
     <Route path="/problems" element={<ProtectedRoute><Problems /></ProtectedRoute>} />

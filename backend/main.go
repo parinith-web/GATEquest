@@ -140,8 +140,11 @@ func main() {
 			w.Write([]byte(`{"message":"pong","email":"` + u.Email + `"}`))
 		})
 
-		// Profile: avatar updates and the activity map / recent-history feed.
+		// Profile: avatar updates, onboarding (branch + username), and
+		// the activity map / recent-history feed.
 		r.Post("/api/profile/avatar", apiHandlers.UpdateAvatar)
+		r.Post("/api/profile/branch", apiHandlers.SetBranch)
+		r.Post("/api/profile/username", apiHandlers.SetUsername)
 		r.Get("/api/profile/activity", apiHandlers.GetActivity)
 
 		// Records a question submission for activity tracking (see

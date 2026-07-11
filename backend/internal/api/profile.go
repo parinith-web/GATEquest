@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"gatequest-auth/internal/auth"
+	"gatequest-auth/internal/store"
 )
 
 // maxAvatarDataURILen caps the base64 data URI we'll accept for an
@@ -57,4 +60,93 @@ func (h *Handlers) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "avatarUrl": url})
+}
+
+type setBranchRequest struct {
+	// Branch is the full discipline name, e.g. "Computer Science" (from
+	// the main onboarding grid) or any other discipline name (from the
+	// free-form "Explore other disciplines" picker).
+	Branch string `json:"branch"`
+}
+
+// POST /api/profile/branch
+// First step of onboarding: pick the engineering discipline that scopes
+// this account's weekly quest leaderboard. Stored on the account itself
+// (not the browser), so it follows the user to any device they sign in
+// from. Can be called again later to change branches from settings.
+func (h *Handlers) SetBranch(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var body setBranchRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	branch := strings.TrimSpace(body.Branch)
+	if branch == "" {
+		writeError(w, http.StatusBadRequest, "branch is required")
+		return
+	}
+	if len(branch) > 100 {
+		writeError(w, http.StatusBadRequest, "branch name is too long")
+		return
+	}
+	// Stored as-is: quest eligibility is a strict string match against
+	// `quests.branch`, so this should line up with whatever an admin
+	// types when scoping a quest to a branch — but a free-form value
+	// from the "explore other disciplines" picker is fine too, it just
+	// won't match any quest until quests exist for that branch.
+	if err := h.Store.SetBranch(r.Context(), user.ID, branch); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update branch")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "branch": branch})
+}
+
+// usernamePattern mirrors common "handle" rules (GitHub, Discord, etc.):
+// letters, digits, and underscores only, 3–20 characters, so it's safe
+// to display, URL-embed, and @-mention without further escaping.
+var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]{3,20}$`)
+
+type setUsernameRequest struct {
+	Username string `json:"username"`
+}
+
+// POST /api/profile/username
+// Second and final step of onboarding: claim a unique handle, shown on
+// the profile page. Case-insensitively unique across all accounts —
+// see migrations/0007_username.sql and store.SetUsername.
+func (h *Handlers) SetUsername(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var body setUsernameRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	username := strings.TrimSpace(body.Username)
+	if !usernamePattern.MatchString(username) {
+		writeError(w, http.StatusBadRequest, "username must be 3-20 characters: letters, numbers, and underscores only")
+		return
+	}
+
+	if err := h.Store.SetUsername(r.Context(), user.ID, username); err != nil {
+		if errors.Is(err, store.ErrUsernameTaken) {
+			writeError(w, http.StatusConflict, "that username is already taken")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update username")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "username": username})
 }

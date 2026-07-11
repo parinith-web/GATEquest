@@ -185,11 +185,14 @@ func (h *WebAuthnHandlers) LoginFinish(w http.ResponseWriter, r *http.Request) {
 
 func userDTO(u *store.User) map[string]any {
 	return map[string]any{
-		"id":         u.ID.String(),
-		"email":      u.Email,
-		"name":       u.Name,
-		"avatarUrl":  u.AvatarURL,
-		"hasPasskey": len(u.Credentials) > 0,
-		"hasGoogle":  u.GoogleSub != "",
+		"id":                 u.ID.String(),
+		"email":              u.Email,
+		"name":               u.Name,
+		"avatarUrl":          u.AvatarURL,
+		"hasPasskey":         len(u.Credentials) > 0,
+		"hasGoogle":          u.GoogleSub != "",
+		"branch":             u.Branch,
+		"username":           u.Username,
+		"onboardingComplete": u.OnboardingComplete(),
 	}
 }

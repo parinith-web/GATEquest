@@ -6,6 +6,7 @@ import {
   useCallback,
 } from "react";
 import { fetchCurrentUser, logout as apiLogout, AuthUser } from "./auth";
+import { setAccountBranch } from "./gate-api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -23,6 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     const u = await fetchCurrentUser();
     setUser(u);
+    // Keep gate-api's synchronous branch cache in sync with the account
+    // itself — see lib/gate-api.ts for why this indirection exists.
+    setAccountBranch(u?.branch);
   }, []);
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await apiLogout();
     setUser(null);
+    setAccountBranch(null);
   }, []);
 
   return (

@@ -10,6 +10,12 @@ export interface AuthUser {
   avatarUrl: string;
   hasPasskey: boolean;
   hasGoogle: boolean;
+  // Account-level onboarding state (Postgres, not localStorage) — set
+  // via setBranch()/setUsername() below and gated on by ProtectedRoute
+  // in App.tsx, so it follows the account across devices/browsers.
+  branch: string;
+  username: string;
+  onboardingComplete: boolean;
 }
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/auth`;
@@ -94,4 +100,32 @@ export async function loginWithPasskey(): Promise<AuthUser> {
     { method: "POST", body: JSON.stringify(assertion) },
   );
   return result.user;
+}
+
+// --- Onboarding (branch + username) -----------------------------------
+//
+// Both are persisted on the account server-side (see
+// backend/internal/api/profile.go), not the browser, so they follow the
+// user to any device/browser they sign in from.
+
+const PROFILE_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/profile`;
+
+/** Sets the account's branch (e.g. "Computer Science") — onboarding step 1. */
+export async function setBranch(branch: string): Promise<void> {
+  await jsonFetch(`${PROFILE_BASE}/branch`, {
+    method: "POST",
+    body: JSON.stringify({ branch }),
+  });
+}
+
+/**
+ * Claims a unique username for the account — onboarding step 2. Throws
+ * with a user-facing message (e.g. "that username is already taken")
+ * on conflict or invalid format.
+ */
+export async function setUsername(username: string): Promise<void> {
+  await jsonFetch(`${PROFILE_BASE}/username`, {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
 }

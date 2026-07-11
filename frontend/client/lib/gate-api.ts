@@ -143,8 +143,42 @@ export const BRANCH_TOPIC_ORDER: Record<WiredBranch, string[]> = {
   ],
 };
 
+// Reverse of BRANCH_SUBJECT, so a full subject name coming back from the
+// account (e.g. "Computer Science") can be mapped back to the short id
+// (e.g. "cse") the rest of the app already keys off of.
+const SUBJECT_TO_BRANCH: Record<string, WiredBranch> = Object.fromEntries(
+  Object.entries(BRANCH_SUBJECT).map(([id, subject]) => [subject, id as WiredBranch]),
+);
+
+// ─── Account branch cache ──────────────────────────────────────────────────
+//
+// The branch itself lives on the account server-side (see
+// backend/internal/store.User.Branch) — this is just a synchronous,
+// in-memory mirror of it, kept in sync by AuthProvider (lib/auth-context)
+// every time the logged-in user loads or changes. Every page that reads
+// getBranch() does so synchronously outside of React's render/effect
+// cycle in a couple of spots, so a plain module-level variable (rather
+// than requiring every caller to thread the user object through) keeps
+// those call sites unchanged.
+let accountBranch: string | null = null;
+
+/**
+ * Called by AuthProvider whenever the current user is loaded/refreshed.
+ * `rawBranch` is the account's stored branch (e.g. "Computer Science"),
+ * or "" if the user hasn't completed onboarding yet.
+ */
+export function setAccountBranch(rawBranch: string | null | undefined): void {
+  accountBranch = rawBranch || null;
+}
+
+/**
+ * Returns the short branch id (e.g. "cse") for the signed-in account, or
+ * null if they haven't picked one yet. Backed by the account itself, not
+ * the browser — signing in on a different device returns the same value.
+ */
 export function getBranch(): string | null {
-  return localStorage.getItem("gatequest_branch");
+  if (!accountBranch) return null;
+  return SUBJECT_TO_BRANCH[accountBranch] ?? accountBranch;
 }
 
 // ─── Quests (weekly mock arena) ─────────────────────────────────────────────

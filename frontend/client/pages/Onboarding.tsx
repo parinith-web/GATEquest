@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth-context";
+import { setBranch as apiSetBranch } from "@/lib/auth";
+import { BRANCH_SUBJECT, type WiredBranch } from "@/lib/gate-api";
 
 type Branch = {
   id: string;
@@ -86,14 +89,40 @@ const branches: Branch[] = [
 
 export default function Onboarding() {
   const [selected, setSelected] = useState<string>("cse");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user, loading, refresh } = useAuth();
 
-  const handleInitialize = () => {
-    localStorage.setItem("gatequest_branch", selected);
-    navigate("/");
+  useEffect(() => {
+    if (!loading && !user) navigate("/login", { replace: true });
+  }, [loading, user, navigate]);
+
+  const handleInitialize = async () => {
+    const branch = branches.find((b) => b.id === selected);
+    if (!branch) return;
+
+    // Wired branches (cse/da) persist the exact subject name the
+    // question bank / quest system uses; everything else persists its
+    // display label — not wired to real curriculum data yet, but still
+    // a stable, human-readable value on the account.
+    const value =
+      selected in BRANCH_SUBJECT ? BRANCH_SUBJECT[selected as WiredBranch] : branch.label;
+
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSetBranch(value);
+      await refresh();
+      navigate("/onboarding/username");
+    } catch (err: any) {
+      setError(err?.message || "Couldn't save your branch. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const hasBranch = !!localStorage.getItem("gatequest_branch");
+  const hasBranch = !!user?.branch;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF" }}>
@@ -205,10 +234,16 @@ export default function Onboarding() {
       </main>
 
       {/* Footer Action Area */}
-      <footer className="flex justify-center items-center px-6 py-6 md:py-7 flex-shrink-0">
+      <footer className="flex flex-col items-center gap-3 px-6 py-6 md:py-7 flex-shrink-0">
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        )}
         <button
           onClick={handleInitialize}
-          className="relative flex items-center gap-4 rounded-[4px] px-10 md:px-16 py-5 md:py-6 overflow-hidden transition-opacity hover:opacity-90 active:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF]"
+          disabled={busy}
+          className="relative flex items-center gap-4 rounded-[4px] px-10 md:px-16 py-5 md:py-6 overflow-hidden transition-opacity hover:opacity-90 active:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ADC6FF] disabled:opacity-60"
           style={{
             background: "linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%)",
             boxShadow: "0 0 15px 0 rgba(173, 198, 255, 0.20)",
@@ -219,7 +254,7 @@ export default function Onboarding() {
             style={{ background: "rgba(255,255,255,0.10)" }}
           />
           <span className="relative font-['Geist'] font-bold text-[13px] leading-[19.5px] tracking-[2.6px] uppercase text-white">
-            INITIALIZE QUEST
+            {busy ? "SAVING…" : "INITIALIZE QUEST"}
           </span>
           <svg className="relative" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M10.1458 7.5H0V5.83333H10.1458L5.47917 1.16667L6.66667 0L13.3333 6.66667L6.66667 13.3333L5.47917 12.1667L10.1458 7.5Z" fill="white"/>

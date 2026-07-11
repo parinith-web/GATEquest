@@ -21,6 +21,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,6 +49,13 @@ type User struct {
 	// Empty until the user sets it (onboarding or profile settings).
 	Branch string
 
+	// Username is the unique, user-chosen handle set during onboarding
+	// (after branch selection) and shown on the profile page in place
+	// of the account's real name. Empty until the user sets it —
+	// onboarding isn't considered complete until both Branch and
+	// Username are non-empty (see (u *User) OnboardingComplete).
+	Username string
+
 	// IsAdmin gates who can create/close quests server-side.
 	IsAdmin bool
 
@@ -69,6 +77,15 @@ func (u *User) displayName() string {
 		return u.Name
 	}
 	return u.Email
+}
+
+// OnboardingComplete reports whether this account has finished the
+// post-login setup flow: pick a branch, then claim a username. The
+// frontend gates every real page behind this so a signed-in user with
+// only one of the two set is always routed back to finish onboarding
+// rather than being able to skip a step by navigating directly.
+func (u *User) OnboardingComplete() bool {
+	return u.Branch != "" && u.Username != ""
 }
 
 // Session is an issued login session, referenced by an opaque random
@@ -194,10 +211,10 @@ func (s *Store) loadUser(ctx context.Context, where string, arg any) (*User, err
 	var u User
 	var email, googleSub *string
 	row := s.db.QueryRow(ctx,
-		`SELECT id, email, name, avatar_url, google_sub, branch, is_admin, created_at FROM users WHERE `+where,
+		`SELECT id, email, name, avatar_url, google_sub, branch, username, is_admin, created_at FROM users WHERE `+where,
 		arg,
 	)
-	if err := row.Scan(&u.ID, &email, &u.Name, &u.AvatarURL, &googleSub, &u.Branch, &u.IsAdmin, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &email, &u.Name, &u.AvatarURL, &googleSub, &u.Branch, &u.Username, &u.IsAdmin, &u.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -271,6 +288,36 @@ func (s *Store) SetBranch(ctx context.Context, userID uuid.UUID, branch string) 
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ErrUsernameTaken is returned by SetUsername when another account
+// already holds that username (case-insensitively).
+var ErrUsernameTaken = errors.New("username already taken")
+
+// SetUsername claims a unique, user-chosen handle for userID — the
+// second and final step of onboarding, after SetBranch. Uniqueness is
+// enforced case-insensitively by a partial unique index on
+// lower(username) (see migrations/0007_username.sql); a violation of
+// that index is translated into ErrUsernameTaken so callers don't need
+// to know about Postgres error codes.
+func (s *Store) SetUsername(ctx context.Context, userID uuid.UUID, username string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE users SET username = $1 WHERE id = $2`, username, userID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return ErrUsernameTaken
+		}
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) GetUserByUsername(username string) (*User, error) {
+	return s.loadUser(context.Background(), "lower(username) = lower($1)", username)
 }
 
 // LinkGoogleAccount attaches a Google subject ID to an existing user
