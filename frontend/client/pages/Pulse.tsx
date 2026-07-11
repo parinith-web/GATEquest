@@ -25,6 +25,7 @@ import {
   PulseSort,
   createPulsePost,
   deletePulsePost,
+  fetchPulseBookmarks,
   fetchPulseChannels,
   fetchPulseFeed,
 } from "@/lib/pulse-api";
@@ -36,6 +37,9 @@ export default function PulsePage() {
 
   const [sortMode, setSortMode] = useState<PulseSort>("hot");
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
+  // "bookmarks" swaps the center feed for the viewer's saved posts —
+  // sort/channel filtering don't apply there, only pagination does.
+  const [viewMode, setViewMode] = useState<"feed" | "bookmarks">("feed");
 
   const [posts, setPosts] = useState<PulsePost[]>([]);
   const [total, setTotal] = useState(0);
@@ -67,6 +71,7 @@ export default function PulsePage() {
 
   // Reload the feed whenever sort or channel filter changes.
   useEffect(() => {
+    if (viewMode !== "feed") return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -86,7 +91,37 @@ export default function PulsePage() {
     return () => {
       cancelled = true;
     };
-  }, [sortMode, activeHashtag, loadFeed]);
+  }, [sortMode, activeHashtag, loadFeed, viewMode]);
+
+  // Load the bookmarks view when switched into it.
+  useEffect(() => {
+    if (viewMode !== "bookmarks") return;
+    if (!user) {
+      setPosts([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchPulseBookmarks({ limit: PAGE_SIZE, offset: 0 })
+      .then((result) => {
+        if (cancelled) return;
+        setPosts(result.posts ?? []);
+        setTotal(result.total);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load bookmarks");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, user]);
 
   // Channels sidebar, loaded once (and refreshed after a new post is
   // published, since that can create/bump a channel).
@@ -105,11 +140,14 @@ export default function PulsePage() {
   const handleLoadMore = async () => {
     setLoadingMore(true);
     try {
-      const result = await loadFeed({
-        hashtag: activeHashtag,
-        sort: sortMode,
-        offset: posts.length,
-      });
+      const result =
+        viewMode === "bookmarks"
+          ? await fetchPulseBookmarks({ limit: PAGE_SIZE, offset: posts.length })
+          : await loadFeed({
+              hashtag: activeHashtag,
+              sort: sortMode,
+              offset: posts.length,
+            });
       setPosts((prev) => [...prev, ...(result.posts ?? [])]);
       setTotal(result.total);
     } catch (err) {
@@ -120,6 +158,7 @@ export default function PulsePage() {
   };
 
   const handleHashtagClick = (tag: string) => {
+    setViewMode("feed");
     setActiveHashtag((current) => (current === tag ? null : tag));
   };
 
@@ -214,11 +253,12 @@ export default function PulsePage() {
                 {channels.map((ch) => (
                   <button
                     key={ch.hashtag}
-                    onClick={() =>
+                    onClick={() => {
+                      setViewMode("feed");
                       setActiveHashtag((current) =>
                         current === ch.hashtag ? null : ch.hashtag,
-                      )
-                    }
+                      );
+                    }}
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded text-[12px] font-mono transition-colors text-left",
                       activeHashtag === ch.hashtag
@@ -249,8 +289,19 @@ export default function PulsePage() {
                 <BarChart3 size={14} className="text-pulse-dim" />
                 TRENDING
               </button>
-              <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-mono tracking-[0.8px] uppercase text-pulse-muted hover:text-pulse-text hover:bg-gq-card text-left transition-colors">
-                <Bookmark size={14} className="text-pulse-dim" />
+              <button
+                onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-mono tracking-[0.8px] uppercase text-left transition-colors",
+                  viewMode === "bookmarks"
+                    ? "text-pulse-blue bg-pulse-blue/5"
+                    : "text-pulse-muted hover:text-pulse-text hover:bg-gq-card",
+                )}
+              >
+                <Bookmark
+                  size={14}
+                  className={viewMode === "bookmarks" ? "text-pulse-blue" : "text-pulse-dim"}
+                />
                 BOOKMARKS
               </button>
             </div>
@@ -352,9 +403,23 @@ export default function PulsePage() {
             {/* Filter/Sort Bar */}
             <div className="flex items-center justify-between gap-3 flex-wrap border-b border-pulse-border pb-3">
               <div className="flex items-center gap-2">
+                {viewMode === "bookmarks" ? (
+                  <button
+                    onClick={() => setViewMode("feed")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-pulse-blue/40 bg-pulse-blue/10 text-[11px] font-mono uppercase tracking-wider text-pulse-blue"
+                  >
+                    <Bookmark size={12} />
+                    YOUR BOOKMARKS
+                    <X size={11} />
+                  </button>
+                ) : (
+                  <>
                 {/* HOT */}
                 <button
-                  onClick={() => setSortMode("hot")}
+                  onClick={() => {
+                    setViewMode("feed");
+                    setSortMode("hot");
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-mono uppercase tracking-wider transition-colors",
                     sortMode === "hot"
@@ -368,7 +433,10 @@ export default function PulsePage() {
 
                 {/* NEW */}
                 <button
-                  onClick={() => setSortMode("new")}
+                  onClick={() => {
+                    setViewMode("feed");
+                    setSortMode("new");
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-mono uppercase tracking-wider transition-colors",
                     sortMode === "new"
@@ -382,7 +450,10 @@ export default function PulsePage() {
 
                 {/* TOP */}
                 <button
-                  onClick={() => setSortMode("top")}
+                  onClick={() => {
+                    setViewMode("feed");
+                    setSortMode("top");
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-mono uppercase tracking-wider transition-colors",
                     sortMode === "top"
@@ -403,12 +474,14 @@ export default function PulsePage() {
                     <X size={11} />
                   </button>
                 )}
+                  </>
+                )}
               </div>
 
               {/* Total nodes */}
               <div className="px-2 py-1 rounded-sm border border-pulse-border bg-pulse-card">
                 <span className="text-[12px] font-mono text-pulse-muted">
-                  Total Nodes: {total.toLocaleString()}
+                  {viewMode === "bookmarks" ? "Saved" : "Total Nodes"}: {total.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -418,7 +491,7 @@ export default function PulsePage() {
               <div className="flex items-center justify-center gap-2 py-16 text-pulse-muted">
                 <Loader2 size={16} className="animate-spin" />
                 <span className="text-[12px] font-mono uppercase tracking-[0.5px]">
-                  Loading feed...
+                  {viewMode === "bookmarks" ? "Loading bookmarks..." : "Loading feed..."}
                 </span>
               </div>
             )}
@@ -429,12 +502,22 @@ export default function PulsePage() {
               </div>
             )}
 
-            {!loading && !error && posts.length === 0 && (
+            {!loading && !error && viewMode === "bookmarks" && !user && (
               <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-pulse-border rounded-lg">
                 <p className="text-[13px] font-mono text-pulse-muted">
-                  {activeHashtag
-                    ? `No posts tagged #${activeHashtag} yet.`
-                    : "Nothing here yet — be the first to post."}
+                  Log in to see posts you've bookmarked.
+                </p>
+              </div>
+            )}
+
+            {!loading && !error && posts.length === 0 && !(viewMode === "bookmarks" && !user) && (
+              <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-pulse-border rounded-lg">
+                <p className="text-[13px] font-mono text-pulse-muted">
+                  {viewMode === "bookmarks"
+                    ? "You haven't bookmarked anything yet."
+                    : activeHashtag
+                      ? `No posts tagged #${activeHashtag} yet.`
+                      : "Nothing here yet — be the first to post."}
                 </p>
               </div>
             )}

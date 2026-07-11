@@ -38,6 +38,32 @@ export interface PulsePost {
   shareCount: number;
   createdAt: string; // ISO timestamp
   isOwner: boolean;
+  // Session 4: the viewer's own reaction/save state, hydrated by the
+  // backend alongside the post itself so the feed never needs a
+  // separate round trip per card to know "did I already like this".
+  userVote: 1 | -1 | 0;
+  isBookmarked: boolean;
+}
+
+export interface PulseComment {
+  id: string;
+  postId: string;
+  author: string;
+  authorAvatar: string;
+  content: string;
+  createdAt: string;
+  isOwner: boolean;
+}
+
+export interface PulseCommentsResult {
+  comments: PulseComment[];
+  total: number;
+}
+
+export interface PulseVoteResult {
+  likeCount: number;
+  dislikeCount: number;
+  userVote: 1 | -1 | 0;
 }
 
 export interface ChannelCount {
@@ -93,6 +119,68 @@ export async function fetchPulseChannels(limit = 20): Promise<ChannelCount[]> {
 
 export async function fetchPulseTrending(limit = 10): Promise<ChannelCount[]> {
   return jsonFetch(`${API_BASE}/pulse/trending?limit=${limit}`);
+}
+
+// --- Reactions (session 4) -------------------------------------------------
+
+/** value: 1 to like, -1 to dislike, 0 to clear the caller's reaction. */
+export async function votePulsePost(
+  id: string,
+  value: 1 | -1 | 0,
+): Promise<PulseVoteResult> {
+  return jsonFetch(`${API_BASE}/pulse/posts/${id}/vote`, {
+    method: "POST",
+    body: JSON.stringify({ value }),
+  });
+}
+
+export async function fetchPulseComments(
+  id: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<PulseCommentsResult> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set("limit", String(opts.limit));
+  if (opts.offset) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return jsonFetch(`${API_BASE}/pulse/posts/${id}/comments${qs ? `?${qs}` : ""}`);
+}
+
+export async function createPulseComment(
+  postId: string,
+  content: string,
+): Promise<PulseComment> {
+  return jsonFetch(`${API_BASE}/pulse/posts/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deletePulseComment(id: string): Promise<void> {
+  await jsonFetch(`${API_BASE}/pulse/comments/${id}`, { method: "DELETE" });
+}
+
+export async function bookmarkPulsePost(id: string): Promise<void> {
+  await jsonFetch(`${API_BASE}/pulse/posts/${id}/bookmark`, { method: "POST" });
+}
+
+export async function unbookmarkPulsePost(id: string): Promise<void> {
+  await jsonFetch(`${API_BASE}/pulse/posts/${id}/bookmark`, { method: "DELETE" });
+}
+
+export async function fetchPulseBookmarks(
+  opts: { limit?: number; offset?: number } = {},
+): Promise<PulseFeedResult> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set("limit", String(opts.limit));
+  if (opts.offset) params.set("offset", String(opts.offset));
+  return jsonFetch(`${API_BASE}/pulse/bookmarks?${params.toString()}`);
+}
+
+/** Bumps the post's share counter server-side; call alongside the
+ * clipboard copy so the count survives a refresh instead of living only
+ * in local component state. */
+export async function sharePulsePost(id: string): Promise<{ shareCount: number }> {
+  return jsonFetch(`${API_BASE}/pulse/posts/${id}/share`, { method: "POST" });
 }
 
 // --- Display helpers ------------------------------------------------------

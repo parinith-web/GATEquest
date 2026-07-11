@@ -38,6 +38,15 @@ type postDTO struct {
 	ShareCount   int      `json:"shareCount"`
 	CreatedAt    string   `json:"createdAt"`
 	IsOwner      bool     `json:"isOwner"`
+
+	// UserVote is the viewer's current reaction on this post: 1 (liked),
+	// -1 (disliked), or 0 (no reaction / anonymous viewer). Hydrated
+	// separately via hydratePostDTOs / store.GetUserVotes — toPostDTO
+	// itself doesn't query for it, to keep feed listing at one query
+	// for N posts instead of N+1.
+	UserVote int `json:"userVote"`
+	// IsBookmarked mirrors UserVote's hydration pattern for saved posts.
+	IsBookmarked bool `json:"isBookmarked"`
 }
 
 func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
@@ -56,6 +65,34 @@ func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
 		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
 		IsOwner:      viewerID != uuid.Nil && viewerID == p.UserID,
 	}
+}
+
+// hydratePostDTOs fills in UserVote/IsBookmarked for a page of posts in
+// two batch queries (rather than 2*N single-row lookups). This is
+// no-op work (empty maps back) for an anonymous viewer, since
+// GetUserVotes/GetUserBookmarks both short-circuit on uuid.Nil.
+func (h *Handlers) hydratePostDTOs(r *http.Request, posts []store.Post, viewerID uuid.UUID) ([]postDTO, error) {
+	ids := make([]uuid.UUID, len(posts))
+	for i, p := range posts {
+		ids[i] = p.ID
+	}
+	votes, err := h.Store.GetUserVotes(r.Context(), viewerID, ids)
+	if err != nil {
+		return nil, err
+	}
+	bookmarks, err := h.Store.GetUserBookmarks(r.Context(), viewerID, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]postDTO, 0, len(posts))
+	for _, p := range posts {
+		dto := toPostDTO(p, viewerID)
+		dto.UserVote = votes[p.ID]
+		dto.IsBookmarked = bookmarks[p.ID]
+		out = append(out, dto)
+	}
+	return out, nil
 }
 
 // currentUserID returns the logged-in user's ID, or uuid.Nil if the
@@ -154,9 +191,10 @@ func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	viewerID := currentUserID(r)
-	out := make([]postDTO, 0, len(posts))
-	for _, p := range posts {
-		out = append(out, toPostDTO(p, viewerID))
+	out, err := h.hydratePostDTOs(r, posts, viewerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load reactions")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"posts": out,
@@ -181,7 +219,13 @@ func (h *Handlers) GetPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load post")
 		return
 	}
-	writeJSON(w, http.StatusOK, toPostDTO(*post, currentUserID(r)))
+	viewerID := currentUserID(r)
+	out, err := h.hydratePostDTOs(r, []store.Post{*post}, viewerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load reactions")
+		return
+	}
+	writeJSON(w, http.StatusOK, out[0])
 }
 
 // DELETE /api/pulse/posts/{id}

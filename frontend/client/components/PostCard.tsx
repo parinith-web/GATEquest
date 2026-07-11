@@ -1,7 +1,18 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Loader2, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { timeAgo } from "@/lib/pulse-api";
+import { useAuth } from "@/lib/auth-context";
+import {
+  PulseComment,
+  timeAgo,
+  votePulsePost,
+  bookmarkPulsePost,
+  unbookmarkPulsePost,
+  sharePulsePost,
+  fetchPulseComments,
+  createPulseComment,
+  deletePulseComment,
+} from "@/lib/pulse-api";
 
 export interface PostCardProps {
   id: string;
@@ -17,6 +28,8 @@ export interface PostCardProps {
   shareCount: number;
   createdAt: string;
   isOwner: boolean;
+  userVote: 1 | -1 | 0;
+  isBookmarked: boolean;
   onHashtagClick?: (hashtag: string) => void;
   onDelete?: (id: string) => void;
 }
@@ -35,39 +48,68 @@ export default function PostCard({
   shareCount,
   createdAt,
   isOwner,
+  userVote,
+  isBookmarked,
   onHashtagClick,
   onDelete,
 }: PostCardProps) {
-  // Like/dislike/save/share are optimistic-only in this session — real
-  // persistence (POST /api/pulse/posts/{id}/vote, etc.) lands once the
-  // interactions endpoints exist. Mirrors how upvote worked before this
-  // page had a backend at all, just split into like + dislike now.
-  const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
+
+  // Reactions and bookmark state are seeded from the post's own DTO
+  // (hydrated server-side per viewer) and then updated optimistically,
+  // with a rollback to the last-known-good value if the API call
+  // fails — the UI should never claim something is saved when it isn't.
+  const [reaction, setReaction] = useState<1 | -1 | 0>(userVote);
   const [likes, setLikes] = useState(likeCount);
   const [dislikes, setDislikes] = useState(dislikeCount);
-  const [saved, setSaved] = useState(false);
+  const [voting, setVoting] = useState(false);
+
+  const [saved, setSaved] = useState(isBookmarked);
+  const [savePending, setSavePending] = useState(false);
+
   const [shares, setShares] = useState(shareCount);
   const [copied, setCopied] = useState(false);
 
-  const handleLike = () => {
-    if (reaction === "like") {
-      setReaction(null);
-      setLikes((n) => n - 1);
-    } else {
-      if (reaction === "dislike") setDislikes((n) => n - 1);
-      setReaction("like");
-      setLikes((n) => n + 1);
-    }
-  };
+  const [comments, setComments] = useState<PulseComment[]>([]);
+  const [commentTotal, setCommentTotal] = useState(commentCount);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
 
-  const handleDislike = () => {
-    if (reaction === "dislike") {
-      setReaction(null);
-      setDislikes((n) => n - 1);
-    } else {
-      if (reaction === "like") setLikes((n) => n - 1);
-      setReaction("dislike");
-      setDislikes((n) => n + 1);
+  const handleVote = async (value: 1 | -1) => {
+    if (!isAuthenticated || voting) return;
+    const nextReaction: 1 | -1 | 0 = reaction === value ? 0 : value;
+
+    // Snapshot for rollback, then apply optimistically.
+    const prevReaction = reaction;
+    const prevLikes = likes;
+    const prevDislikes = dislikes;
+
+    let nextLikes = likes;
+    let nextDislikes = dislikes;
+    if (prevReaction === 1) nextLikes -= 1;
+    if (prevReaction === -1) nextDislikes -= 1;
+    if (nextReaction === 1) nextLikes += 1;
+    if (nextReaction === -1) nextDislikes += 1;
+
+    setReaction(nextReaction);
+    setLikes(nextLikes);
+    setDislikes(nextDislikes);
+    setVoting(true);
+    try {
+      const result = await votePulsePost(id, nextReaction);
+      setLikes(result.likeCount);
+      setDislikes(result.dislikeCount);
+      setReaction(result.userVote);
+    } catch {
+      setReaction(prevReaction);
+      setLikes(prevLikes);
+      setDislikes(prevDislikes);
+    } finally {
+      setVoting(false);
     }
   };
 
@@ -76,10 +118,93 @@ export default function PostCard({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setShares((n) => n + 1);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard unavailable — silently ignore */
+      /* clipboard unavailable — still record the share below */
+    }
+    setShares((n) => n + 1);
+    try {
+      const result = await sharePulsePost(id);
+      setShares(result.shareCount);
+    } catch {
+      // Non-critical — the optimistic count already moved and a failed
+      // server bump isn't worth surfacing an error for a copy-link click.
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!isAuthenticated || savePending) return;
+    const prevSaved = saved;
+    const next = !prevSaved;
+    setSaved(next);
+    setSavePending(true);
+    try {
+      if (next) {
+        await bookmarkPulsePost(id);
+      } else {
+        await unbookmarkPulsePost(id);
+      }
+    } catch {
+      setSaved(prevSaved);
+    } finally {
+      setSavePending(false);
+    }
+  };
+
+  const loadComments = async () => {
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const result = await fetchPulseComments(id);
+      setComments(result.comments ?? []);
+      setCommentTotal(result.total);
+    } catch (err) {
+      setCommentsError(
+        err instanceof Error ? err.message : "Failed to load replies",
+      );
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleToggleComments = () => {
+    const opening = !commentsOpen;
+    setCommentsOpen(opening);
+    if (opening && comments.length === 0) {
+      loadComments();
+    }
+  };
+
+  const handlePostComment = async () => {
+    const text = commentDraft.trim();
+    if (!text || postingComment) return;
+    setPostingComment(true);
+    try {
+      const created = await createPulseComment(id, text);
+      setComments((prev) => [...prev, created]);
+      setCommentTotal((n) => n + 1);
+      setCommentDraft("");
+    } catch (err) {
+      setCommentsError(
+        err instanceof Error ? err.message : "Failed to post reply",
+      );
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const prev = comments;
+    setComments((c) => c.filter((cm) => cm.id !== commentId));
+    setCommentTotal((n) => Math.max(0, n - 1));
+    try {
+      await deletePulseComment(commentId);
+    } catch (err) {
+      setComments(prev);
+      setCommentTotal((n) => n + 1);
+      setCommentsError(
+        err instanceof Error ? err.message : "Failed to delete reply",
+      );
     }
   };
 
@@ -165,26 +290,32 @@ export default function PostCard({
         {/* Actions */}
         <div className="flex items-center gap-4 pt-3 mt-1 border-t border-pulse-border flex-wrap">
           {/* Replies */}
-          <button className="flex items-center gap-1.5 text-pulse-muted hover:text-pulse-text transition-colors">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <path
-                d="M0 15V1.5C0 1.0875 0.146875 0.734375 0.440625 0.440625C0.734375 0.146875 1.0875 0 1.5 0H13.5C13.9125 0 14.2656 0.146875 14.5594 0.440625C14.8531 0.734375 15 1.0875 15 1.5V10.5C15 10.9125 14.8531 11.2656 14.5594 11.5594C14.2656 11.8531 13.9125 12 13.5 12H3L0 15ZM2.3625 10.5H13.5V1.5H1.5V11.3438L2.3625 10.5Z"
-                fill="currentColor"
-              />
-            </svg>
+          <button
+            onClick={handleToggleComments}
+            className={cn(
+              "flex items-center gap-1.5 transition-colors",
+              commentsOpen
+                ? "text-pulse-blue"
+                : "text-pulse-muted hover:text-pulse-text",
+            )}
+          >
+            <MessageCircle size={14} />
             <span className="text-[11px] font-mono uppercase tracking-[0.55px]">
-              {commentCount} REPLIES
+              {commentTotal} REPLIES
             </span>
           </button>
 
           {/* Like */}
           <button
-            onClick={handleLike}
+            onClick={() => handleVote(1)}
+            disabled={!isAuthenticated || voting}
+            title={isAuthenticated ? undefined : "Log in to react"}
             className={cn(
               "flex items-center gap-1.5 transition-colors",
-              reaction === "like"
+              reaction === 1
                 ? "text-pulse-blue"
-                : "text-pulse-dim hover:text-pulse-blue"
+                : "text-pulse-dim hover:text-pulse-blue",
+              !isAuthenticated && "cursor-not-allowed opacity-70",
             )}
           >
             <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -193,7 +324,7 @@ export default function PostCard({
             <span
               className={cn(
                 "text-[12px] font-mono font-bold",
-                reaction === "like" ? "text-pulse-blue" : "text-pulse-text"
+                reaction === 1 ? "text-pulse-blue" : "text-pulse-text",
               )}
             >
               {likes}
@@ -202,12 +333,15 @@ export default function PostCard({
 
           {/* Dislike */}
           <button
-            onClick={handleDislike}
+            onClick={() => handleVote(-1)}
+            disabled={!isAuthenticated || voting}
+            title={isAuthenticated ? undefined : "Log in to react"}
             className={cn(
               "flex items-center gap-1.5 transition-colors",
-              reaction === "dislike"
+              reaction === -1
                 ? "text-pulse-red"
-                : "text-pulse-dim hover:text-pulse-red"
+                : "text-pulse-dim hover:text-pulse-red",
+              !isAuthenticated && "cursor-not-allowed opacity-70",
             )}
           >
             <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -216,7 +350,7 @@ export default function PostCard({
             <span
               className={cn(
                 "text-[12px] font-mono font-bold",
-                reaction === "dislike" ? "text-pulse-red" : "text-pulse-text"
+                reaction === -1 ? "text-pulse-red" : "text-pulse-text",
               )}
             >
               {dislikes}
@@ -241,12 +375,15 @@ export default function PostCard({
 
           {/* Save */}
           <button
-            onClick={() => setSaved((s) => !s)}
+            onClick={handleToggleSave}
+            disabled={!isAuthenticated || savePending}
+            title={isAuthenticated ? undefined : "Log in to save posts"}
             className={cn(
               "ml-auto flex items-center gap-1.5 transition-colors",
               saved
                 ? "text-pulse-blue"
-                : "text-pulse-muted hover:text-pulse-text"
+                : "text-pulse-muted hover:text-pulse-text",
+              !isAuthenticated && "cursor-not-allowed opacity-70",
             )}
           >
             <svg width="11" height="14" viewBox="0 0 11 14" fill="none">
@@ -268,6 +405,103 @@ export default function PostCard({
             </span>
           </button>
         </div>
+
+        {/* Comment thread */}
+        {commentsOpen && (
+          <div className="flex flex-col gap-3 pt-3 mt-1 border-t border-pulse-border">
+            {commentsLoading && (
+              <div className="flex items-center gap-2 py-3 text-pulse-muted">
+                <Loader2 size={13} className="animate-spin" />
+                <span className="text-[11px] font-mono uppercase tracking-[0.5px]">
+                  Loading replies...
+                </span>
+              </div>
+            )}
+
+            {!commentsLoading && commentsError && (
+              <p className="text-[11px] font-mono text-pulse-red">{commentsError}</p>
+            )}
+
+            {!commentsLoading && comments.length === 0 && !commentsError && (
+              <p className="text-[11px] font-mono text-pulse-dim">
+                No replies yet — be the first to respond.
+              </p>
+            )}
+
+            {comments.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {comments.map((c) => (
+                  <div key={c.id} className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-sm border border-pulse-border2 bg-pulse-border overflow-hidden flex-shrink-0 mt-0.5">
+                      <img
+                        src={c.authorAvatar}
+                        alt={c.author}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-mono font-bold text-pulse-text">
+                          {c.author}
+                        </span>
+                        <span className="text-[10px] font-mono text-pulse-dim">
+                          {timeAgo(c.createdAt)}
+                        </span>
+                        {c.isOwner && (
+                          <button
+                            onClick={() => handleDeleteComment(c.id)}
+                            className="ml-auto text-pulse-dim hover:text-pulse-red transition-colors"
+                            title="Delete reply"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[12.5px] font-sans text-pulse-text leading-[1.5] whitespace-pre-wrap">
+                        {c.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handlePostComment();
+                    }
+                  }}
+                  placeholder="Write a reply..."
+                  maxLength={1000}
+                  className="flex-1 bg-transparent border border-pulse-border rounded-md px-2.5 py-1.5 text-[12px] font-sans text-pulse-text placeholder:text-pulse-dim outline-none focus:border-pulse-blue/40"
+                />
+                <button
+                  onClick={handlePostComment}
+                  disabled={!commentDraft.trim() || postingComment}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-[0.5px] transition-colors",
+                    commentDraft.trim() && !postingComment
+                      ? "bg-pulse-blue text-white hover:opacity-90"
+                      : "bg-pulse-border text-pulse-dim cursor-not-allowed",
+                  )}
+                >
+                  {postingComment && <Loader2 size={11} className="animate-spin" />}
+                  Reply
+                </button>
+              </div>
+            ) : (
+              <p className="text-[11px] font-mono text-pulse-dim">
+                Log in to join the conversation.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

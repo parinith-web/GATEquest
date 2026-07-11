@@ -164,6 +164,17 @@ func main() {
 		// Reading the feed does not — see the public routes below.
 		r.Post("/api/pulse/posts", apiHandlers.CreatePost)
 		r.Delete("/api/pulse/posts/{id}", apiHandlers.DeletePost)
+
+		// Pulse interactions (session 4): reacting, commenting, and
+		// bookmarking all require being logged in. Reading a comment
+		// thread and bumping the share counter don't — see the public
+		// routes below.
+		r.Post("/api/pulse/posts/{id}/vote", apiHandlers.VotePost)
+		r.Post("/api/pulse/posts/{id}/comments", apiHandlers.CreateComment)
+		r.Delete("/api/pulse/comments/{id}", apiHandlers.DeleteComment)
+		r.Post("/api/pulse/posts/{id}/bookmark", apiHandlers.BookmarkPost)
+		r.Delete("/api/pulse/posts/{id}/bookmark", apiHandlers.UnbookmarkPost)
+		r.Get("/api/pulse/bookmarks", apiHandlers.ListBookmarks)
 	})
 
 	// Question bank: public read-only endpoints, no auth required for
@@ -180,6 +191,8 @@ func main() {
 	r.Get("/api/pulse/posts/{id}", apiHandlers.GetPost)
 	r.Get("/api/pulse/channels", apiHandlers.ListChannels)
 	r.Get("/api/pulse/trending", apiHandlers.TrendingHashtags)
+	r.Get("/api/pulse/posts/{id}/comments", apiHandlers.ListComments)
+	r.Post("/api/pulse/posts/{id}/share", apiHandlers.SharePost)
 
 	addr := ":" + cfg.Port
 	log.Printf("listening on %s", addr)
@@ -197,7 +210,7 @@ func corsMiddleware(frontendOrigin string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", frontendOrigin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
