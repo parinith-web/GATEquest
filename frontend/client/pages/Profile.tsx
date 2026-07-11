@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/lib/auth-context";
@@ -35,13 +35,31 @@ function timeAgo(iso: string): string {
   return `${days} DAY${days === 1 ? "" : "S"} AGO`;
 }
 
+// A livelier blue gradient than a flat 5-step grey→blue scale — each step
+// gets noticeably brighter and more saturated, and the top two steps get a
+// soft glow (HEAT_GLOW) so a hot streak actually pops off the card instead
+// of just being "a slightly different grey square."
 const HEAT_COLORS = [
-  "#353534",                    // 0 = inactive
-  "rgba(93,152,255,0.30)",      // 1 = low
-  "#3B5FB1",                    // 2 = med
-  "#445891",                    // 3 = med-high
-  "rgba(136,179,254,0.60)",     // 4 = bright
+  "#22262F",   // 0 = inactive (a hair bluer than pure grey, ties into the card)
+  "#1D3E78",   // 1 = low
+  "#2955A8",   // 2 = med
+  "#3E7BE0",   // 3 = med-high
+  "#8FB6FF",   // 4 = bright
 ];
+
+const HEAT_GLOW = [
+  "none",
+  "none",
+  "0 0 4px rgba(41,85,168,0.45)",
+  "0 0 7px rgba(62,123,224,0.55)",
+  "0 0 11px rgba(143,182,255,0.75)",
+];
+
+// Fixed cell size (GitHub/LeetCode-style) instead of stretching to fill
+// the card — keeps the grid feeling dense and hand-crafted rather than a
+// handful of oversized blocks. Scrolls horizontally on narrow screens.
+const CELL_SIZE = 13;
+const CELL_GAP = 4;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -158,86 +176,125 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
     });
   }
 
+  // Total active days + longest streak, computed straight from the
+  // heatmap so the header reads like a real GitHub/LeetCode-style
+  // contribution graph instead of a static day count.
+  const { activeDays, maxStreak } = useMemo(() => {
+    let active = 0;
+    let longest = 0;
+    let current = 0;
+    for (const d of heatmap) {
+      if (d.count > 0) {
+        active += 1;
+        current += 1;
+        longest = Math.max(longest, current);
+      } else {
+        current = 0;
+      }
+    }
+    return { activeDays: active, maxStreak: longest };
+  }, [heatmap]);
+
+  const gridTemplateColumns = `repeat(${weekCount}, ${CELL_SIZE}px)`;
+
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gq-border pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gq-border pb-3">
         <div className="flex items-center gap-2">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M0 8V0H8V8H0ZM0 18V10H8V18H0ZM10 8V0H18V8H10ZM10 18V10H18V18H10ZM2 6H6V2H2V6ZM12 6H16V2H12V6ZM12 16H16V12H12V16ZM2 16H6V12H2V16Z" fill="#ADC6FF"/>
           </svg>
           <span className="text-base text-gq-text-primary">Activity Map</span>
         </div>
-        <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
-          NODE_UPTIME: {heatmap.length} DAYS
-        </span>
+        <div className="flex items-center gap-4 font-mono text-xs text-gq-text-secondary">
+          <span>
+            ACTIVE DAYS: <span className="text-gq-accent font-bold">{activeDays}</span>
+          </span>
+          <span className="text-gq-border">|</span>
+          <span>
+            MAX STREAK: <span className="text-gq-accent font-bold">{maxStreak}</span>
+          </span>
+        </div>
       </div>
 
-      {/* Month labels */}
-      <div className="flex flex-col gap-2">
-        <div
-          className="grid text-left"
-          style={{ gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))` }}
-        >
-          {monthLabels.map(({ col, label }) => (
-            <span
-              key={`${col}-${label}`}
-              className="font-mono text-xs text-gq-text-secondary"
-              style={{ gridColumn: col + 1 }}
+      {/* Contribution count, LeetCode-style */}
+      <span className="text-sm text-gq-text-secondary">
+        <span className="text-2xl font-bold text-gq-accent align-middle mr-1.5">
+          {totalContributions.toLocaleString()}
+        </span>
+        question{totalContributions === 1 ? "" : "s"} attempted in the last year
+      </span>
+
+      {/* Heatmap grid */}
+      {heatmap.length === 0 ? (
+        <div className="py-10 text-center text-sm text-gq-text-secondary">
+          No activity yet — solve a question to light up the map.
+        </div>
+      ) : (
+        <div className="overflow-x-auto pb-1">
+          <div className="flex flex-col gap-2 w-fit min-w-full">
+            {/* Month labels, aligned to the same fixed-width columns as the grid below */}
+            <div
+              className="grid text-left"
+              style={{ gridTemplateColumns, columnGap: CELL_GAP }}
             >
-              {label}
-            </span>
-          ))}
-        </div>
+              {monthLabels.map(({ col, label }) => (
+                <span
+                  key={`${col}-${label}`}
+                  className="font-mono text-xs text-gq-text-secondary"
+                  style={{ gridColumn: col + 1 }}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
 
-        {/* Heatmap grid */}
-        {heatmap.length === 0 ? (
-          <div className="py-10 text-center text-sm text-gq-text-secondary">
-            No activity yet — solve a question to light up the map.
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns,
+                gridTemplateRows: `repeat(7, ${CELL_SIZE}px)`,
+                columnGap: CELL_GAP,
+                rowGap: CELL_GAP,
+              }}
+            >
+              {heatmap.map((d, i) => {
+                const col = Math.floor(i / 7) + 1;
+                const row = (i % 7) + 1;
+                const level = levelForCount(d.count);
+                return (
+                  <div
+                    key={d.date}
+                    className="rounded-[4px] transition-all duration-150 ease-out hover:scale-125 hover:z-10 hover:rounded-[5px] cursor-default"
+                    style={{
+                      background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
+                      boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
+                      gridColumn: col,
+                      gridRow: row,
+                      width: CELL_SIZE,
+                      height: CELL_SIZE,
+                    }}
+                    title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
+                  />
+                );
+              })}
+            </div>
           </div>
-        ) : (
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-gq-border/30">
+        <span className="text-sm text-gq-text-secondary mr-1">Less</span>
+        {HEAT_COLORS.map((color, i) => (
           <div
-            className="grid gap-[3px] w-full"
-            style={{
-              gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))`,
-              gridTemplateRows: "repeat(7, 1fr)",
-            }}
-          >
-            {heatmap.map((d, i) => {
-              const col = Math.floor(i / 7) + 1;
-              const row = (i % 7) + 1;
-              const level = levelForCount(d.count);
-              return (
-                <div
-                  key={d.date}
-                  className="aspect-square rounded-[2px]"
-                  style={{
-                    background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
-                    gridColumn: col,
-                    gridRow: row,
-                  }}
-                  title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* Legend */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gq-border/30">
-          <span className="font-mono text-xs text-gq-text-secondary hidden sm:block">
-            {totalContributions} contribution{totalContributions === 1 ? "" : "s"} in the last year
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-gq-text-secondary mr-1">Less</span>
-            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#353534" }} />
-            <div className="w-3 h-3 rounded-[2px]" style={{ background: "rgba(93, 152, 255, 0.3)" }} />
-            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#3B5FB1" }} />
-            <div className="w-3 h-3 rounded-[2px]" style={{ background: "#445891" }} />
-            <div className="w-3 h-3 rounded-[2px]" style={{ background: "rgba(136, 179, 254, 0.6)" }} />
-            <span className="text-sm text-gq-text-secondary ml-1">More</span>
-          </div>
-        </div>
+            key={color}
+            className="w-3 h-3 rounded-[3px]"
+            style={{ background: color, boxShadow: HEAT_GLOW[i] }}
+          />
+        ))}
+        <span className="text-sm text-gq-text-secondary ml-1">More</span>
       </div>
     </section>
   );
