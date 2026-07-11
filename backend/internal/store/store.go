@@ -42,6 +42,15 @@ type User struct {
 	// empty if the account has never signed in with Google.
 	GoogleSub string
 
+	// Branch scopes weekly quest leaderboards to "your branch mates
+	// only" (e.g. "Computer Science", "Data Science and Artificial
+	// Intelligence", matching the same values used as questions.subject).
+	// Empty until the user sets it (onboarding or profile settings).
+	Branch string
+
+	// IsAdmin gates who can create/close quests server-side.
+	IsAdmin bool
+
 	Credentials []webauthn.Credential
 
 	CreatedAt time.Time
@@ -152,10 +161,10 @@ func (s *Store) loadUser(ctx context.Context, where string, arg any) (*User, err
 	var u User
 	var email, googleSub *string
 	row := s.db.QueryRow(ctx,
-		`SELECT id, email, name, avatar_url, google_sub, created_at FROM users WHERE `+where,
+		`SELECT id, email, name, avatar_url, google_sub, branch, is_admin, created_at FROM users WHERE `+where,
 		arg,
 	)
-	if err := row.Scan(&u.ID, &email, &u.Name, &u.AvatarURL, &googleSub, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &email, &u.Name, &u.AvatarURL, &googleSub, &u.Branch, &u.IsAdmin, &u.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -206,6 +215,22 @@ func (s *Store) loadCredentials(ctx context.Context, userID uuid.UUID) ([]webaut
 func (s *Store) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarURL string) error {
 	tag, err := s.db.Exec(ctx,
 		`UPDATE users SET avatar_url = $1 WHERE id = $2`, avatarURL, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetBranch sets the branch (e.g. "Computer Science") a user belongs to,
+// which scopes which weekly quest leaderboard they compete on. Can be
+// changed later from the profile page; a user only ever competes on
+// whatever branch they're currently set to at the time a quest starts.
+func (s *Store) SetBranch(ctx context.Context, userID uuid.UUID, branch string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE users SET branch = $1 WHERE id = $2`, branch, userID)
 	if err != nil {
 		return err
 	}

@@ -104,6 +104,21 @@ func (m *Manager) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+// RequireAdmin builds on RequireAuth: it must be mounted inside a group
+// that already ran RequireAuth (so the user is in context), and further
+// rejects any request from a non-admin user. Used to gate quest
+// creation/close endpoints to whoever sets up the weekly contest.
+func RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := UserFromContext(r.Context())
+		if u == nil || !u.IsAdmin {
+			http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func UserFromContext(ctx context.Context) *store.User {
 	u, _ := ctx.Value(userContextKey).(*store.User)
 	return u
