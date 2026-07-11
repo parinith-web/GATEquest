@@ -8,7 +8,16 @@ import {
   type SolveProgress,
 } from "@/lib/profile-api";
 import { getLevelProgress } from "@/lib/leveling";
-import { BRANCH_SUBJECT, getBranch, isWiredBranch } from "@/lib/gate-api";
+import {
+  BRANCH_SUBJECT,
+  getBranch,
+  isWiredBranch,
+  fetchQuests,
+  fetchQuestRatingHistory,
+  nextSunday630pm,
+  type QuestSummary,
+  type QuestHistoryEntry,
+} from "@/lib/gate-api";
 
 // Consecutive-day streak counted backward from the most recent day in
 // the heatmap (today) — the first day with zero attempts breaks it.
@@ -21,6 +30,30 @@ function currentStreakFromHeatmap(heatmap: HeatmapDay[]): number {
     else break;
   }
   return streak;
+}
+
+function formatQuestDate(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatTimeTaken(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// The weekly arena only ever lands on Sunday, so we treat the tail end
+// of the week (Fri/Sat/Sun) as "look ahead to what's coming" and the
+// rest of the week as "look back at how the last one went".
+function isUpcomingWindow(date: Date): boolean {
+  const day = date.getDay(); // 0 = Sun ... 6 = Sat
+  return day === 0 || day === 5 || day === 6;
 }
 
 function timeAgo(iso: string): string {
@@ -73,12 +106,20 @@ function recentTopicsFromHistory(history: HistoryItem[]): RecentTopic[] {
 
 
 
-// Donut chart for weekly quest progress
-function DonutChart({ percentage }: { percentage: number }) {
+// Same ring shell as DonutChart, but shows an arbitrary label/value pair
+// in the center instead of a percentage — used for "rank achieved" and
+// "starts in" states where there's no completion fraction to plot.
+function RingStat({
+  value,
+  label,
+  filled,
+}: {
+  value: string;
+  label: string;
+  filled: boolean;
+}) {
   const radius = 80;
   const circumference = 2 * Math.PI * radius;
-  const strokeDash = (percentage / 100) * circumference;
-
   return (
     <div className="relative w-[180px] h-[180px] shrink-0">
       <svg width="180" height="180" viewBox="0 0 180 180" className="rotate-[-90deg]">
@@ -86,13 +127,13 @@ function DonutChart({ percentage }: { percentage: number }) {
         <circle
           cx="90" cy="90" r={radius} fill="none"
           stroke="#5DA2FA" strokeWidth="16"
-          strokeDasharray={`${strokeDash} ${circumference}`}
+          strokeDasharray={`${filled ? circumference : circumference * 0.12} ${circumference}`}
           strokeLinecap="round"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-white text-[22px] font-bold leading-tight">{percentage}%</span>
-        <span className="text-gq-text-secondary text-[12px]">Completed</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+        <span className="text-white text-[22px] font-bold leading-tight">{value}</span>
+        <span className="text-gq-text-secondary text-[12px]">{label}</span>
       </div>
     </div>
   );
@@ -188,6 +229,51 @@ export default function Index() {
   const levelProgress = getLevelProgress(activity.xp);
   const recentTopics = recentTopicsFromHistory(activity.history);
 
+  // --- Quests (weekly arena) --------------------------------------------
+  const [quests, setQuests] = useState<QuestSummary[]>([]);
+  const [questHistory, setQuestHistory] = useState<QuestHistoryEntry[]>([]);
+  const [questLoading, setQuestLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isWiredBranch(branch)) {
+      setQuests([]);
+      setQuestHistory([]);
+      setQuestLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setQuestLoading(true);
+    Promise.allSettled([fetchQuests(branchSubject), fetchQuestRatingHistory()])
+      .then(([questsResult, historyResult]) => {
+        if (cancelled) return;
+        setQuests(questsResult.status === "fulfilled" ? questsResult.value : []);
+        setQuestHistory(historyResult.status === "fulfilled" ? historyResult.value : []);
+      })
+      .finally(() => {
+        if (!cancelled) setQuestLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branch, branchSubject]);
+
+  // Rank shown on the stats row: the standings from the user's most
+  // recent settled quest (there's no separate global leaderboard yet).
+  // Someone who has never completed a quest has no rank at all.
+  const latestResult = questHistory[0] ?? null;
+
+  // Weekly Quest card: Fri/Sat/Sun (the run-up to Sunday's arena) shows
+  // what's coming next; the rest of the week looks back at the last
+  // completed quest. Anyone with no quest history yet always sees the
+  // upcoming view, since there's nothing to look back on.
+  const showUpcomingQuest = questHistory.length === 0 || isUpcomingWindow(new Date());
+  const liveQuest = quests.find((q) => q.status === "live") ?? null;
+  const nextScheduledQuest =
+    quests
+      .filter((q) => q.status === "scheduled")
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] ?? null;
+  const upcomingQuest = liveQuest ?? nextScheduledQuest ?? null;
+
   return (
     <Layout>
       <div className="px-[34px] pb-[34px] flex flex-col gap-6">
@@ -253,12 +339,24 @@ export default function Index() {
 
             {/* Global Rank */}
             <div className="bg-gq-card border border-gq-border rounded-[17px] p-[21px] flex flex-col justify-between min-h-[138px]">
-              <span className="text-gq-text-secondary text-[15px]">Global Rank</span>
+              <span className="text-gq-text-secondary text-[15px]">Rank</span>
               <div className="flex flex-col gap-1">
-                <span className="text-white text-[32px] font-bold leading-[38px]">#1,240</span>
+                <span className="text-white text-[32px] font-bold leading-[38px]">
+                  {questLoading ? "–" : latestResult ? `#${latestResult.result.rank}` : "Unranked"}
+                </span>
                 <div className="flex items-center gap-2">
-                  <TrendUpIcon />
-                  <span className="text-gq-blue text-[15px]">Up 12 positions</span>
+                  {latestResult ? (
+                    <>
+                      <TrendUpIcon />
+                      <span className="text-gq-blue text-[15px]">
+                        Weekly Quest #{latestResult.quest.weekNumber}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gq-text-muted text-[15px]">
+                      {questLoading ? "" : "Join a quest to get ranked"}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -271,53 +369,138 @@ export default function Index() {
               {/* Weekly Quest Progress */}
               <div className="bg-gq-card border border-gq-border rounded-[17px] p-[25px] flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-white text-[21px] font-semibold">Weekly Quest #27</h2>
+                  <h2 className="text-white text-[21px] font-semibold">
+                    {showUpcomingQuest
+                      ? upcomingQuest
+                        ? `Weekly Quest #${upcomingQuest.weekNumber}`
+                        : "Weekly Quest"
+                      : `Weekly Quest #${latestResult!.quest.weekNumber}`}
+                  </h2>
                   <DotsMenu />
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
-                  {/* Donut chart */}
-                  <DonutChart percentage={60} />
-
-                  {/* Details */}
-                  <div className="flex flex-col gap-4 flex-1 w-full">
-                    {/* Current topic */}
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#201F1F] rounded-[2px] p-2 shrink-0">
-                        <svg width="17" height="18" viewBox="0 0 33 35" fill="none">
-                          <path d="M10.1667 25.1667C9.70833 25.1667 9.31597 25.0035 8.98958 24.6771C8.66319 24.3507 8.5 23.9583 8.5 23.5V11.8333C8.5 11.375 8.66319 10.9826 8.98958 10.6562C9.31597 10.3299 9.70833 10.1667 10.1667 10.1667H13.6667C13.8472 9.66667 14.1493 9.26389 14.5729 8.95833C14.9965 8.65278 15.4722 8.5 16 8.5C16.5278 8.5 17.0035 8.65278 17.4271 8.95833C17.8507 9.26389 18.1528 9.66667 18.3333 10.1667H21.8333C22.2917 10.1667 22.684 10.3299 23.0104 10.6562C23.3368 10.9826 23.5 11.375 23.5 11.8333V23.5C23.5 23.9583 23.3368 24.3507 23.0104 24.6771C22.684 25.0035 22.2917 25.1667 21.8333 25.1667H10.1667ZM10.1667 23.5H21.8333V11.8333H10.1667V23.5ZM11.8333 21.8333H17.6667V20.1667H11.8333V21.8333ZM11.8333 18.5H20.1667V16.8333H11.8333V18.5ZM11.8333 15.1667H20.1667V13.5H11.8333V15.1667ZM16 11.2083C16.1806 11.2083 16.3299 11.1493 16.4479 11.0312C16.566 10.9132 16.625 10.7639 16.625 10.5833C16.625 10.4028 16.566 10.2535 16.4479 10.1354C16.3299 10.0174 16.1806 9.95833 16 9.95833C15.8194 9.95833 15.6701 10.0174 15.5521 10.1354C15.434 10.2535 15.375 10.4028 15.375 10.5833C15.375 10.7639 15.434 10.9132 15.5521 11.0312C15.6701 11.1493 15.8194 11.2083 16 11.2083Z" fill="#888888"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-gq-text-muted text-[12px]">Current Topic</p>
-                        <p className="text-white text-[17px] font-medium">OS Scheduling Algorithms</p>
-                      </div>
-                    </div>
-
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-gq-blue" />
-                          <span className="text-gq-blue text-[15px]">Solved</span>
+                {questLoading ? (
+                  <p className="text-gq-text-muted text-[15px] py-4">Loading…</p>
+                ) : showUpcomingQuest ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                    <RingStat
+                      value={upcomingQuest?.status === "live" ? "Live" : "Soon"}
+                      label={upcomingQuest ? "Starts" : "Next arena"}
+                      filled={upcomingQuest?.status === "live"}
+                    />
+                    <div className="flex flex-col gap-4 flex-1 w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-[#201F1F] rounded-[2px] p-2 shrink-0">
+                          <svg width="17" height="18" viewBox="0 0 33 35" fill="none">
+                            <path d="M10.1667 25.1667C9.70833 25.1667 9.31597 25.0035 8.98958 24.6771C8.66319 24.3507 8.5 23.9583 8.5 23.5V11.8333C8.5 11.375 8.66319 10.9826 8.98958 10.6562C9.31597 10.3299 9.70833 10.1667 10.1667 10.1667H13.6667C13.8472 9.66667 14.1493 9.26389 14.5729 8.95833C14.9965 8.65278 15.4722 8.5 16 8.5C16.5278 8.5 17.0035 8.65278 17.4271 8.95833C17.8507 9.26389 18.1528 9.66667 18.3333 10.1667H21.8333C22.2917 10.1667 22.684 10.3299 23.0104 10.6562C23.3368 10.9826 23.5 11.375 23.5 11.8333V23.5C23.5 23.9583 23.3368 24.3507 23.0104 24.6771C22.684 25.0035 22.2917 25.1667 21.8333 25.1667H10.1667ZM10.1667 23.5H21.8333V11.8333H10.1667V23.5ZM11.8333 21.8333H17.6667V20.1667H11.8333V21.8333ZM11.8333 18.5H20.1667V16.8333H11.8333V18.5ZM11.8333 15.1667H20.1667V13.5H11.8333V15.1667ZM16 11.2083C16.1806 11.2083 16.3299 11.1493 16.4479 11.0312C16.566 10.9132 16.625 10.7639 16.625 10.5833C16.625 10.4028 16.566 10.2535 16.4479 10.1354C16.3299 10.0174 16.1806 9.95833 16 9.95833C15.8194 9.95833 15.6701 10.0174 15.5521 10.1354C15.434 10.2535 15.375 10.4028 15.375 10.5833C15.375 10.7639 15.434 10.9132 15.5521 11.0312C15.6701 11.1493 15.8194 11.2083 16 11.2083Z" fill="#888888"/>
+                          </svg>
                         </div>
-                        <span className="text-white text-[17px] font-semibold">6 Questions</span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-gq-text-muted" />
-                          <span className="text-gq-text-secondary text-[15px]">Remaining</span>
+                        <div>
+                          <p className="text-gq-text-muted text-[12px]">
+                            {upcomingQuest?.status === "live" ? "Live Now" : "Coming Up"}
+                          </p>
+                          <p className="text-white text-[17px] font-medium">
+                            {upcomingQuest ? upcomingQuest.title : "Next weekly arena"}
+                          </p>
                         </div>
-                        <span className="text-white text-[17px] font-semibold">4 Questions</span>
                       </div>
-                    </div>
 
-                    {/* CTA button */}
-                    <button className="w-full py-[10px] bg-[#888] rounded-[8px] text-[#0E0E0E] text-[17px] font-semibold hover:bg-white/80 transition-colors">
-                      Continue Quest
-                    </button>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-gq-text-secondary text-[15px]">
+                            {upcomingQuest?.status === "live" ? "Started" : "Starts At"}
+                          </span>
+                          <span className="text-white text-[17px] font-semibold">
+                            {formatQuestDate(
+                              upcomingQuest ? upcomingQuest.startsAt : nextSunday630pm().toISOString(),
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-gq-text-secondary text-[15px]">Duration</span>
+                          <span className="text-white text-[17px] font-semibold">
+                            {Math.round((upcomingQuest?.durationSeconds ?? 3600) / 60)} min
+                          </span>
+                        </div>
+                      </div>
+
+                      <Link
+                        to={upcomingQuest ? `/quests/${upcomingQuest.id}` : "/quests"}
+                        className="w-full py-[10px] bg-[#888] rounded-[8px] text-[#0E0E0E] text-[17px] font-semibold text-center hover:bg-white/80 transition-colors"
+                      >
+                        {upcomingQuest?.status === "live" ? "Enter Arena" : "View Quest"}
+                      </Link>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                    <RingStat
+                      value={`#${latestResult!.result.rank}`}
+                      label="Your Rank"
+                      filled
+                    />
+                    <div className="flex flex-col gap-4 flex-1 w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-[#201F1F] rounded-[2px] p-2 shrink-0">
+                          <svg width="17" height="18" viewBox="0 0 33 35" fill="none">
+                            <path d="M10.1667 25.1667C9.70833 25.1667 9.31597 25.0035 8.98958 24.6771C8.66319 24.3507 8.5 23.9583 8.5 23.5V11.8333C8.5 11.375 8.66319 10.9826 8.98958 10.6562C9.31597 10.3299 9.70833 10.1667 10.1667 10.1667H13.6667C13.8472 9.66667 14.1493 9.26389 14.5729 8.95833C14.9965 8.65278 15.4722 8.5 16 8.5C16.5278 8.5 17.0035 8.65278 17.4271 8.95833C17.8507 9.26389 18.1528 9.66667 18.3333 10.1667H21.8333C22.2917 10.1667 22.684 10.3299 23.0104 10.6562C23.3368 10.9826 23.5 11.375 23.5 11.8333V23.5C23.5 23.9583 23.3368 24.3507 23.0104 24.6771C22.684 25.0035 22.2917 25.1667 21.8333 25.1667H10.1667ZM10.1667 23.5H21.8333V11.8333H10.1667V23.5ZM11.8333 21.8333H17.6667V20.1667H11.8333V21.8333ZM11.8333 18.5H20.1667V16.8333H11.8333V18.5ZM11.8333 15.1667H20.1667V13.5H11.8333V15.1667ZM16 11.2083C16.1806 11.2083 16.3299 11.1493 16.4479 11.0312C16.566 10.9132 16.625 10.7639 16.625 10.5833C16.625 10.4028 16.566 10.2535 16.4479 10.1354C16.3299 10.0174 16.1806 9.95833 16 9.95833C15.8194 9.95833 15.6701 10.0174 15.5521 10.1354C15.434 10.2535 15.375 10.4028 15.375 10.5833C15.375 10.7639 15.434 10.9132 15.5521 11.0312C15.6701 11.1493 15.8194 11.2083 16 11.2083Z" fill="#888888"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-gq-text-muted text-[12px]">Last Completed</p>
+                          <p className="text-white text-[17px] font-medium">{latestResult!.quest.title}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-gq-blue" />
+                            <span className="text-gq-blue text-[15px]">Solved</span>
+                          </div>
+                          <span className="text-white text-[17px] font-semibold">
+                            {latestResult!.result.solvedCount} Questions
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-gq-text-muted" />
+                            <span className="text-gq-text-secondary text-[15px]">Time Taken</span>
+                          </div>
+                          <span className="text-white text-[17px] font-semibold">
+                            {formatTimeTaken(latestResult!.result.timeTakenSeconds)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-gq-text-secondary text-[15px]">Rating</span>
+                          <span
+                            className={[
+                              "text-[17px] font-semibold",
+                              latestResult!.result.ratingAfter >= latestResult!.result.ratingBefore
+                                ? "text-gq-blue"
+                                : "text-red-400",
+                            ].join(" ")}
+                          >
+                            {latestResult!.result.ratingBefore} → {latestResult!.result.ratingAfter}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-gq-text-secondary text-[15px]">Completed</span>
+                          <span className="text-white text-[17px] font-semibold">
+                            {formatQuestDate(latestResult!.quest.startsAt)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <Link
+                        to={`/quests/${latestResult!.quest.id}`}
+                        className="w-full py-[10px] bg-[#888] rounded-[8px] text-[#0E0E0E] text-[17px] font-semibold text-center hover:bg-white/80 transition-colors"
+                      >
+                        View Full Results
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Recent Topics Solved */}
