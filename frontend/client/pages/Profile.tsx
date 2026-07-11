@@ -376,31 +376,65 @@ const DIFFICULTY_COLORS = {
 function SolveCounter({ progress }: SolveCounterProps) {
   const { easy, medium, hard, totalSolved, totalQuestions, attempting } = progress;
 
-  // Ring drawn as a stack of three arcs, one per difficulty, each sized
-  // to that difficulty's *solved* count as a fraction of the whole
-  // question bank (not just its own difficulty's total) — so the ring
-  // reads as "how much of the bank is solved, and which difficulty it
-  // came from," the same way LeetCode's donut does, rather than three
-  // independent 0-100% gauges that wouldn't relate to each other.
+  // Ring drawn as three arcs joined into a loop — one per difficulty —
+  // instead of one continuous progress circle. Each arc's *length* is
+  // that difficulty's share of the whole question bank (so Medium, with
+  // more than double Easy/Hard's question count, visibly takes up more
+  // of the ring), and each arc is itself split into a bright leading
+  // segment (that difficulty's solved fraction) and a dim trailing
+  // segment (what's left) — same read as LeetCode's donut. A few degrees
+  // of empty space between arcs is what makes them read as three
+  // distinct joined arcs rather than one solid ring.
   const size = 200;
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const cx = size / 2;
   const cy = size / 2;
+  const GAP_DEG = 5; // empty space between each of the 3 arcs
 
-  const segments = [
-    { key: "easy", solved: easy.solved, color: DIFFICULTY_COLORS.easy },
-    { key: "medium", solved: medium.solved, color: DIFFICULTY_COLORS.medium },
-    { key: "hard", solved: hard.solved, color: DIFFICULTY_COLORS.hard },
+  const difficulties = [
+    { key: "easy", color: DIFFICULTY_COLORS.easy, data: easy },
+    { key: "medium", color: DIFFICULTY_COLORS.medium, data: medium },
+    { key: "hard", color: DIFFICULTY_COLORS.hard, data: hard },
   ];
-  let cumulative = 0;
-  const arcs = segments.map((seg) => {
-    const fraction = totalQuestions > 0 ? seg.solved / totalQuestions : 0;
-    const arcLength = fraction * circumference;
-    const dashoffset = -cumulative;
-    cumulative += arcLength;
-    return { ...seg, arcLength, dashoffset };
+
+  const availableDeg = 360 - difficulties.length * GAP_DEG;
+  const degToLen = (deg: number) => (deg / 360) * circumference;
+
+  let cursorDeg = 0;
+  const segments: {
+    key: string;
+    color: string;
+    opacity: number;
+    length: number;
+    offset: number;
+  }[] = [];
+  difficulties.forEach((d) => {
+    const arcDeg = totalQuestions > 0 ? (d.data.total / totalQuestions) * availableDeg : availableDeg / 3;
+    const solvedFraction = d.data.total > 0 ? d.data.solved / d.data.total : 0;
+    const solvedDeg = arcDeg * solvedFraction;
+    const dimDeg = arcDeg - solvedDeg;
+
+    if (solvedDeg > 0) {
+      segments.push({
+        key: `${d.key}-solved`,
+        color: d.color,
+        opacity: 1,
+        length: degToLen(solvedDeg),
+        offset: degToLen(cursorDeg),
+      });
+    }
+    if (dimDeg > 0) {
+      segments.push({
+        key: `${d.key}-remaining`,
+        color: d.color,
+        opacity: 0.22,
+        length: degToLen(dimDeg),
+        offset: degToLen(cursorDeg + solvedDeg),
+      });
+    }
+    cursorDeg += arcDeg + GAP_DEG;
   });
 
   const rows = [
@@ -421,23 +455,21 @@ function SolveCounter({ progress }: SolveCounterProps) {
       <div className="flex-1 flex flex-col sm:flex-row items-center gap-6">
         <div className="relative w-full max-w-[180px] mx-auto aspect-square flex-shrink-0">
           <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full -rotate-90">
-            <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#2D2D2D" strokeWidth={strokeWidth} />
-            {arcs.map((arc) =>
-              arc.arcLength > 0 ? (
-                <circle
-                  key={arc.key}
-                  cx={cx}
-                  cy={cy}
-                  r={radius}
-                  fill="none"
-                  stroke={arc.color}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="round"
-                  strokeDasharray={`${arc.arcLength} ${circumference - arc.arcLength}`}
-                  strokeDashoffset={arc.dashoffset}
-                />
-              ) : null,
-            )}
+            {segments.map((seg) => (
+              <circle
+                key={seg.key}
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeOpacity={seg.opacity}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeDasharray={`${seg.length} ${circumference - seg.length}`}
+                strokeDashoffset={-seg.offset}
+              />
+            ))}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span className="text-2xl font-bold text-gq-text-primary leading-none">
@@ -446,12 +478,13 @@ function SolveCounter({ progress }: SolveCounterProps) {
                 /{totalQuestions.toLocaleString()}
               </span>
             </span>
-            <span className="text-xs font-medium" style={{ color: DIFFICULTY_COLORS.easy }}>
-              ✓ Solved
+            <span className="text-xs font-medium text-gq-text-secondary flex items-center gap-1">
+              <span className="text-[#4ADE80]">✓</span> Solved
             </span>
             {attempting > 0 && (
               <span className="text-[11px] text-gq-text-secondary">
-                {attempting.toLocaleString()} Attempting
+                <span className="font-semibold text-gq-text-primary">{attempting.toLocaleString()}</span>{" "}
+                Attempting
               </span>
             )}
           </div>
