@@ -388,14 +388,14 @@ function SolveCounter({ progress }: SolveCounterProps) {
   // of empty space separates each of the three arcs from its neighbors
   // so they visibly don't touch.
   const size = 200;
-  const strokeWidth = 10;
+  const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const cx = size / 2;
   const cy = size / 2;
-  const TOTAL_SWEEP_DEG = 300; // ring covers 300° total, leaving a 60° gap at the bottom
+  const TOTAL_SWEEP_DEG = 270; // ring covers 270° total, leaving a 90° gap at the bottom
   const ARC_GAP_DEG = 14; // empty space between each of the 3 arcs
-  const START_DEG = 210; // offset where the ring starts (bottom-left, right after the bottom gap)
+  const START_DEG = 225; // offset where the ring starts (bottom-left, right after the bottom gap)
 
   const difficulties = [
     { key: "easy", color: DIFFICULTY_COLORS.easy, data: easy },
