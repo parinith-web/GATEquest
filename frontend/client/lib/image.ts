@@ -37,3 +37,41 @@ export function fileToAvatarDataURL(
     reader.readAsDataURL(file);
   });
 }
+
+// Resizes an image file down to a max dimension (preserving aspect
+// ratio) and returns it as a JPEG data URI, without cropping to a
+// square. Used for Pulse post image attachments — unlike the avatar
+// helper above, a post image's shape is part of the content, so it
+// shouldn't get force-cropped.
+export function fileToImageDataURL(
+  file: File,
+  maxDimension = 1280,
+  quality = 0.85,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That doesn't look like a valid image."));
+      img.onload = () => {
+        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        const width = Math.round(img.width * scale);
+        const height = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas not supported in this browser."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
