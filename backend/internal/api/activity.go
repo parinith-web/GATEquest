@@ -72,6 +72,20 @@ type historyItemDTO struct {
 	AttemptedAt  string `json:"attemptedAt"` // RFC3339
 }
 
+type difficultyCountDTO struct {
+	Solved int `json:"solved"`
+	Total  int `json:"total"`
+}
+
+type solveProgressDTO struct {
+	Easy           difficultyCountDTO `json:"easy"`
+	Medium         difficultyCountDTO `json:"medium"`
+	Hard           difficultyCountDTO `json:"hard"`
+	TotalSolved    int                `json:"totalSolved"`
+	TotalQuestions int                `json:"totalQuestions"`
+	Attempting     int                `json:"attempting"`
+}
+
 // GET /api/profile/activity?subject=Computer+Science
 // Returns everything the profile page's Activity Map + history feed +
 // XP/level header need in one call: a zero-filled daily heatmap for the
@@ -133,10 +147,25 @@ func (h *Handlers) GetActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	progress, err := h.Store.GetSolveProgress(r.Context(), user.ID, subject)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load solve progress")
+		return
+	}
+	progressOut := solveProgressDTO{
+		Easy:           difficultyCountDTO{Solved: progress.Easy.Solved, Total: progress.Easy.Total},
+		Medium:         difficultyCountDTO{Solved: progress.Medium.Solved, Total: progress.Medium.Total},
+		Hard:           difficultyCountDTO{Solved: progress.Hard.Solved, Total: progress.Hard.Total},
+		TotalSolved:    progress.TotalSolved(),
+		TotalQuestions: progress.TotalQuestions(),
+		Attempting:     progress.Attempting,
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"heatmap":            heatmap,
 		"totalContributions": total,
 		"history":            historyOut,
 		"xp":                 xp,
+		"progress":           progressOut,
 	})
 }

@@ -7,6 +7,7 @@ import {
   updateAvatar,
   type HeatmapDay,
   type HistoryItem,
+  type SolveProgress,
 } from "@/lib/profile-api";
 import { fileToAvatarDataURL } from "@/lib/image";
 import { getLevelProgress } from "@/lib/leveling";
@@ -249,7 +250,7 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
         <span className="text-2xl font-bold text-gq-accent align-middle mr-1.5">
           {totalContributions.toLocaleString()}
         </span>
-        question{totalContributions === 1 ? "" : "s"} attempted in the last year
+        submission{totalContributions === 1 ? "" : "s"} in the last year
       </span>
 
       {/* Heatmap grid, broken into one flex item per calendar month so it
@@ -362,41 +363,114 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
   );
 }
 
-function TacticalMastery() {
+interface SolveCounterProps {
+  progress: SolveProgress;
+}
+
+const DIFFICULTY_COLORS = {
+  easy: "#2DD4BF",
+  medium: "#EAB308",
+  hard: "#EF4444",
+} as const;
+
+function SolveCounter({ progress }: SolveCounterProps) {
+  const { easy, medium, hard, totalSolved, totalQuestions, attempting } = progress;
+
+  // Ring drawn as a stack of three arcs, one per difficulty, each sized
+  // to that difficulty's *solved* count as a fraction of the whole
+  // question bank (not just its own difficulty's total) — so the ring
+  // reads as "how much of the bank is solved, and which difficulty it
+  // came from," the same way LeetCode's donut does, rather than three
+  // independent 0-100% gauges that wouldn't relate to each other.
+  const size = 200;
+  const strokeWidth = 10;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const segments = [
+    { key: "easy", solved: easy.solved, color: DIFFICULTY_COLORS.easy },
+    { key: "medium", solved: medium.solved, color: DIFFICULTY_COLORS.medium },
+    { key: "hard", solved: hard.solved, color: DIFFICULTY_COLORS.hard },
+  ];
+  let cumulative = 0;
+  const arcs = segments.map((seg) => {
+    const fraction = totalQuestions > 0 ? seg.solved / totalQuestions : 0;
+    const arcLength = fraction * circumference;
+    const dashoffset = -cumulative;
+    cumulative += arcLength;
+    return { ...seg, arcLength, dashoffset };
+  });
+
+  const rows = [
+    { label: "Easy", color: DIFFICULTY_COLORS.easy, data: easy },
+    { label: "Med.", color: DIFFICULTY_COLORS.medium, data: medium },
+    { label: "Hard", color: DIFFICULTY_COLORS.hard, data: hard },
+  ];
+
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
       <div className="flex items-center gap-2 border-b border-gq-border pb-3">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M10 20C8.61667 20 7.31667 19.7375 6.1 19.2125C4.88333 18.6875 3.825 17.975 2.925 17.075C2.025 16.175 1.3125 15.1167 0.7875 13.9C0.2625 12.6833 0 11.3833 0 10C0 8.61667 0.2625 7.31667 0.7875 6.1C1.3125 4.88333 2.025 3.825 2.925 2.925C3.825 2.025 4.88333 1.3125 6.1 0.7875C7.31667 0.2625 8.61667 0 10 0C11.3833 0 12.6833 0.2625 13.9 0.7875C15.1167 1.3125 16.175 2.025 17.075 2.925C17.975 3.825 18.6875 4.88333 19.2125 6.1C19.7375 7.31667 20 8.61667 20 10C20 11.3833 19.7375 12.6833 19.2125 13.9C18.6875 15.1167 17.975 16.175 17.075 17.075C16.175 17.975 15.1167 18.6875 13.9 19.2125C12.6833 19.7375 11.3833 20 10 20ZM10 18C10.9333 18 11.8125 17.8542 12.6375 17.5625C13.4625 17.2708 14.2167 16.8583 14.9 16.325L13.475 14.9C12.9917 15.25 12.4542 15.5208 11.8625 15.7125C11.2708 15.9042 10.65 16 10 16C8.33333 16 6.91667 15.4167 5.75 14.25C4.58333 13.0833 4 11.6667 4 10C4 8.33333 4.58333 6.91667 5.75 5.75C6.91667 4.58333 8.33333 4 10 4C11.6667 4 13.0833 4.58333 14.25 5.75C15.4167 6.91667 16 8.33333 16 10C16 10.65 15.9 11.275 15.7 11.875C15.5 12.475 15.225 13.0167 14.875 13.5L16.3 14.925C16.8333 14.2417 17.25 13.4833 17.55 12.65C17.85 11.8167 18 10.9333 18 10C18 7.76667 17.225 5.875 15.675 4.325C14.125 2.775 12.2333 2 10 2C7.76667 2 5.875 2.775 4.325 4.325C2.775 5.875 2 7.76667 2 10C2 12.2333 2.775 14.125 4.325 15.675C5.875 17.225 7.76667 18 10 18Z" fill="#ADC6FF"/>
         </svg>
-        <span className="text-base text-gq-text-primary">Tactical Mastery</span>
+        <span className="text-base text-gq-text-primary">Questions Solved</span>
       </div>
 
-      <div className="flex-1 flex items-center justify-center">
-        <div className="relative w-full max-w-[200px] mx-auto aspect-square">
-          <svg viewBox="0 0 260 260" fill="none" className="w-full h-full">
-            {/* Grid circles */}
-            <circle cx="130" cy="130" r="117" stroke="#2D2D2D" strokeWidth="1.3"/>
-            <circle cx="130" cy="130" r="78" stroke="#2D2D2D" strokeWidth="1.3"/>
-            <circle cx="130" cy="130" r="39" stroke="#2D2D2D" strokeWidth="1.3"/>
-            {/* Grid lines */}
-            <line x1="130" y1="13" x2="130" y2="247" stroke="#2D2D2D" strokeWidth="1.3"/>
-            <line x1="13" y1="130" x2="247" y2="130" stroke="#2D2D2D" strokeWidth="1.3"/>
-            {/* Radar polygon */}
-            <path
-              d="M130 39L221 130L169 207H91L39 130L130 39Z"
-              fill="#ADC6FF"
-              fillOpacity="0.2"
-              stroke="#ADC6FF"
-              strokeWidth="3.9"
-            />
+      <div className="flex-1 flex flex-col sm:flex-row items-center gap-6">
+        <div className="relative w-full max-w-[180px] mx-auto aspect-square flex-shrink-0">
+          <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full -rotate-90">
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#2D2D2D" strokeWidth={strokeWidth} />
+            {arcs.map((arc) =>
+              arc.arcLength > 0 ? (
+                <circle
+                  key={arc.key}
+                  cx={cx}
+                  cy={cy}
+                  r={radius}
+                  fill="none"
+                  stroke={arc.color}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  strokeDasharray={`${arc.arcLength} ${circumference - arc.arcLength}`}
+                  strokeDashoffset={arc.dashoffset}
+                />
+              ) : null,
+            )}
           </svg>
-          {/* Labels */}
-          <span className="absolute top-0 left-1/2 -translate-x-1/2 font-mono text-[9px] text-gq-text-secondary">OS</span>
-          <span className="absolute right-0 top-1/2 -translate-y-1/2 font-mono text-[9px] text-gq-text-secondary">Algorithms</span>
-          <span className="absolute bottom-0 right-4 font-mono text-[9px] text-gq-text-secondary">Logic</span>
-          <span className="absolute bottom-0 left-4 font-mono text-[9px] text-gq-text-secondary">Math</span>
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 font-mono text-[9px] text-gq-text-secondary">DS</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span className="text-2xl font-bold text-gq-text-primary leading-none">
+              {totalSolved.toLocaleString()}
+              <span className="text-base font-normal text-gq-text-secondary">
+                /{totalQuestions.toLocaleString()}
+              </span>
+            </span>
+            <span className="text-xs font-medium" style={{ color: DIFFICULTY_COLORS.easy }}>
+              ✓ Solved
+            </span>
+            {attempting > 0 && (
+              <span className="text-[11px] text-gq-text-secondary">
+                {attempting.toLocaleString()} Attempting
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 w-full sm:flex-1">
+          {rows.map((row) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between px-3 py-2 rounded-md bg-black/20 border border-gq-border/50"
+            >
+              <span className="text-sm font-semibold" style={{ color: row.color }}>
+                {row.label}
+              </span>
+              <span className="font-mono text-sm text-gq-text-secondary">
+                {row.data.solved.toLocaleString()}/{row.data.total.toLocaleString()}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -561,7 +635,21 @@ export default function ProfilePage() {
     totalContributions: number;
     history: HistoryItem[];
     xp: number;
-  }>({ heatmap: [], totalContributions: 0, history: [], xp: 0 });
+    progress: SolveProgress;
+  }>({
+    heatmap: [],
+    totalContributions: 0,
+    history: [],
+    xp: 0,
+    progress: {
+      easy: { solved: 0, total: 0 },
+      medium: { solved: 0, total: 0 },
+      hard: { solved: 0, total: 0 },
+      totalSolved: 0,
+      totalQuestions: 0,
+      attempting: 0,
+    },
+  });
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -652,10 +740,10 @@ export default function ProfilePage() {
           />
         )}
 
-        {/* Row 2: Tactical Mastery + Badges */}
+        {/* Row 2: Solve Counter + Badges */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4">
-            <TacticalMastery />
+            <SolveCounter progress={activity.progress} />
           </div>
           <div className="lg:col-span-8">
             <Badges />

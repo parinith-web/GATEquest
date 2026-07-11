@@ -56,6 +56,20 @@ export interface HistoryItem {
   attemptedAt: string; // ISO timestamp
 }
 
+export interface DifficultyCount {
+  solved: number;
+  total: number;
+}
+
+export interface SolveProgress {
+  easy: DifficultyCount;
+  medium: DifficultyCount;
+  hard: DifficultyCount;
+  totalSolved: number;
+  totalQuestions: number;
+  attempting: number;
+}
+
 export interface ProfileActivity {
   heatmap: HeatmapDay[];
   totalContributions: number;
@@ -64,6 +78,11 @@ export interface ProfileActivity {
    * for how this turns into a level). Scoped to `subject` when one is
    * passed to fetchProfileActivity. */
   xp: number;
+  /** Distinct questions solved (correctly, ever) vs. the size of the
+   * question bank, broken down by difficulty — powers the LeetCode-style
+   * solved counter on the profile page. Scoped to `subject` the same way
+   * as `xp`. */
+  progress: SolveProgress;
 }
 
 /**
