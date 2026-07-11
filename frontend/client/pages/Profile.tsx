@@ -47,13 +47,12 @@ const HEAT_COLORS = [
   "#8FB6FF",   // 4 = bright
 ];
 
-const HEAT_GLOW = [
-  "none",
-  "none",
-  "0 0 4px rgba(41,85,168,0.45)",
-  "0 0 7px rgba(62,123,224,0.55)",
-  "0 0 11px rgba(143,182,255,0.75)",
-];
+// Glow was previously drawn as an outer box-shadow, which bleeds a soft
+// blur past each cell's edges — fuzzy rather than crisp, and especially
+// messy on the small legend swatches. Kept as an array (same shape as
+// HEAT_COLORS) so callers don't need to change, but every level is now
+// "none" so cells/swatches render with clean, contained edges.
+const HEAT_GLOW = ["none", "none", "none", "none", "none"];
 
 // Fluid cell sizing (percent-based, via flexbox + aspect-square) so the
 // grid actually fills the card instead of sitting in a fixed-size island —
@@ -263,61 +262,88 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
           No activity yet — solve a question to light up the map.
         </div>
       ) : (
-        <div className="overflow-x-auto pb-1">
-          <div className="flex flex-col gap-2" style={{ minWidth: MIN_GRID_WIDTH }}>
-            {/* Month labels */}
-            <div className="flex" style={{ gap: MONTH_GAP }}>
-              {monthGroups.map((g) => (
-                <span
-                  key={`${g.monthKey}-label`}
-                  className="font-mono text-xs text-gq-text-secondary truncate"
-                  style={{ flexGrow: g.cols.length, flexBasis: 0, minWidth: 0 }}
-                >
-                  {g.label}
-                </span>
-              ))}
-            </div>
+        (() => {
+          // Single unified grid for the whole year, instead of one
+          // independent mini-grid per month. That old per-month approach
+          // gave every month its own gridTemplateColumns + its own
+          // columnGap, so each month's *internal* gaps ate into its own
+          // width independently — a month with many week-columns lost a
+          // lot of width to gaps (shrinking its cells), while a
+          // low-column month (like the current, still-in-progress month)
+          // lost almost none, so its cells rendered visibly larger. One
+          // grid means one shared columnGap applied uniformly across the
+          // whole year, so every real week-column — and therefore every
+          // cell — gets exactly the same width no matter which month
+          // it's in. Fixed-width spacer columns between months recreate
+          // the old visual "month gap" without splitting the grid.
+          let col = 0;
+          const monthStartCol: number[] = [];
+          const templateParts: string[] = [];
+          monthGroups.forEach((g, idx) => {
+            monthStartCol.push(col);
+            col += g.cols.length;
+            templateParts.push(`repeat(${g.cols.length}, 1fr)`);
+            if (idx < monthGroups.length - 1) {
+              templateParts.push(`${MONTH_GAP}px`);
+              col += 1;
+            }
+          });
+          const gridTemplateColumns = templateParts.join(" ");
 
-            {/* Month blocks */}
-            <div className="flex" style={{ gap: MONTH_GAP }}>
-              {monthGroups.map((g) => {
-                const colIndex = new Map(g.cols.map((c, idx) => [c, idx]));
-                return (
-                  <div
-                    key={g.monthKey}
-                    style={{ flexGrow: g.cols.length, flexBasis: 0, minWidth: 0 }}
+          return (
+            <div className="overflow-x-auto pb-1">
+              <div
+                className="grid"
+                style={{
+                  minWidth: MIN_GRID_WIDTH,
+                  gridTemplateColumns,
+                  columnGap: CELL_GAP,
+                  rowGap: CELL_GAP,
+                  gridTemplateRows: `auto repeat(7, 1fr)`,
+                }}
+              >
+                {/* Month labels, row 1 */}
+                {monthGroups.map((g, idx) => (
+                  <span
+                    key={`${g.monthKey}-label`}
+                    className="font-mono text-xs text-gq-text-secondary truncate pb-1 text-center"
+                    style={{
+                      gridColumn: `${monthStartCol[idx] + 1} / span ${g.cols.length}`,
+                      gridRow: 1,
+                      minWidth: 0,
+                    }}
                   >
-                    <div
-                      className="grid"
-                      style={{
-                        gridTemplateColumns: `repeat(${g.cols.length}, 1fr)`,
-                        columnGap: CELL_GAP,
-                        rowGap: CELL_GAP,
-                      }}
-                    >
-                      {g.days.map((d) => {
-                        const level = levelForCount(d.count);
-                        return (
-                          <div
-                            key={d.date}
-                            className="aspect-square rounded-[4px] transition-all duration-150 ease-out hover:scale-125 hover:z-10 hover:rounded-[5px] cursor-default"
-                            style={{
-                              background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
-                              boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
-                              gridColumn: (colIndex.get(d.globalCol) ?? 0) + 1,
-                              gridRow: d.row + 1,
-                            }}
-                            title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                    {g.label}
+                  </span>
+                ))}
+
+                {/* Day cells, rows 2–8 */}
+                {monthGroups.map((g, idx) => {
+                  const colIndex = new Map(g.cols.map((c, i) => [c, i]));
+                  return g.days.map((d) => {
+                    const level = levelForCount(d.count);
+                    return (
+                      <div
+                        key={d.date}
+                        className="aspect-square rounded-[4px] transition-all duration-150 ease-out hover:scale-125 hover:z-10 hover:rounded-[5px] cursor-default"
+                        style={{
+                          background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
+                          boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
+                          gridColumn:
+                            monthStartCol[idx] + (colIndex.get(d.globalCol) ?? 0) + 1,
+                          gridRow: d.row + 2,
+                          minWidth: 0,
+                          minHeight: 0,
+                        }}
+                        title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
+                      />
+                    );
+                  });
+                })}
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()
       )}
 
       {/* Legend */}
