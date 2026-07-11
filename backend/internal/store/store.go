@@ -155,6 +155,39 @@ func (s *Store) GetUserByGoogleSub(sub string) (*User, error) {
 	return s.loadUser(context.Background(), "google_sub = $1", sub)
 }
 
+// GetUsersByIDs batch-loads basic display info (id, name, email,
+// avatar) for a set of user IDs in one query, rather than N+1 individual
+// GetUserByID calls. Used to attach display names to quest leaderboard /
+// results rows, which only carry user IDs from Redis/Postgres. Missing
+// IDs (shouldn't normally happen — a FK violation would have stopped
+// the row being written) are simply absent from the returned map rather
+// than erroring the whole batch.
+func (s *Store) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*User, error) {
+	out := make(map[uuid.UUID]*User, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT id, email, name, avatar_url FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u User
+		var email *string
+		if err := rows.Scan(&u.ID, &email, &u.Name, &u.AvatarURL); err != nil {
+			return nil, err
+		}
+		if email != nil {
+			u.Email = *email
+		}
+		out[u.ID] = &u
+	}
+	return out, rows.Err()
+}
+
 // loadUser fetches a user row by the given WHERE clause/arg, then loads
 // their credentials in a second query.
 func (s *Store) loadUser(ctx context.Context, where string, arg any) (*User, error) {

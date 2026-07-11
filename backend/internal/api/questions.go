@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -17,10 +18,11 @@ import (
 
 type Handlers struct {
 	Store *store.Store
+	Quest *quest.Service
 }
 
-func New(st *store.Store) *Handlers {
-	return &Handlers{Store: st}
+func New(st *store.Store, questSvc *quest.Service) *Handlers {
+	return &Handlers{Store: st, Quest: questSvc}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

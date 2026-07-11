@@ -88,12 +88,22 @@ func main() {
 	defer questRedis.Close()
 
 	mgr := auth.NewManager(st, cfg)
-	apiHandlers := api.New(st)
+	questSvc := quest.NewService(st, questRedis)
+	apiHandlers := api.New(st, questSvc)
 
 	waHandlers, err := auth.NewWebAuthnHandlers(mgr)
 	if err != nil {
 		log.Fatalf("failed to initialize webauthn: %v", err)
 	}
+
+	// Automatic contest clock: opens scheduled quests and closes/settles
+	// live ones once their time is up, without any admin action needed
+	// (see internal/quest.Scheduler). Runs for the lifetime of the
+	// process; canceling schedulerCancel (e.g. on a future graceful
+	// shutdown path) would stop it.
+	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
+	defer schedulerCancel()
+	go quest.NewScheduler(questSvc).Start(schedulerCtx)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -132,6 +142,23 @@ func main() {
 		// Records a question submission for activity tracking (see
 		// api.RecordAttempt doc comment — grading itself stays client-side).
 		r.Post("/api/questions/{id}/attempt", apiHandlers.RecordAttempt)
+
+		// Quests: weekly branch-scoped contests. Join/submit/leaderboard/
+		// results are open to any authenticated participant (Service
+		// itself enforces the branch match); creating a quest is further
+		// gated to admins only.
+		r.Get("/api/quests", apiHandlers.ListQuests)
+		r.Get("/api/quests/rating-history", apiHandlers.RatingHistory)
+		r.Get("/api/quests/{id}", apiHandlers.GetQuest)
+		r.Post("/api/quests/{id}/join", apiHandlers.JoinQuest)
+		r.Post("/api/quests/{id}/submit", apiHandlers.Submit)
+		r.Get("/api/quests/{id}/leaderboard", apiHandlers.Leaderboard)
+		r.Get("/api/quests/{id}/results", apiHandlers.QuestResults)
+
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireAdmin)
+			r.Post("/api/quests", apiHandlers.CreateQuest)
+		})
 	})
 
 	// Question bank: public read-only endpoints, no auth required for
