@@ -160,31 +160,50 @@ interface ActivityMapProps {
 }
 
 function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
-  const weekCount = Math.max(1, Math.ceil(heatmap.length / 7));
-
-  // Group columns (calendar weeks) into contiguous month blocks so the
-  // grid can render each month as its own mini-grid — that's what makes
-  // "breaking it up by month" possible instead of one continuous strip.
-  // A column belongs to whichever month its first (Sunday) day falls in.
+  // Group by each day's own calendar month — not by "whichever month owns
+  // this week-column" like before. That earlier approach dumped an entire
+  // 7-day week into one month's block even when a couple of those days
+  // actually belonged to the next month (e.g. a week straddling Aug
+  // 31/Sep 1 rendered as 7 "August" cells), which is exactly why August
+  // was showing 35 cells for a 31-day month.
+  //
+  // Instead, a boundary week can now be split: the days that are really
+  // in August render in August's grid, the days that are really in
+  // September render in September's grid, each using its own local
+  // column index — so every month's cell count matches its real day
+  // count (or less, at the very start/end of the 1-year window).
+  interface DayCell {
+    date: string;
+    count: number;
+    globalCol: number;
+    row: number; // 0 (Sun) – 6 (Sat)
+  }
   interface MonthGroup {
     label: string;
     monthKey: string;
-    startCol: number;
-    endCol: number;
+    days: DayCell[];
+    cols: number[]; // distinct global week-columns this month's real days touch, in order
   }
   const monthGroups: MonthGroup[] = [];
-  for (let col = 0; col < weekCount; col++) {
-    const day = heatmap[col * 7] ?? heatmap[heatmap.length - 1];
-    const date = new Date(`${day.date}T00:00:00Z`);
+  heatmap.forEach((d, i) => {
+    const date = new Date(`${d.date}T00:00:00Z`);
     const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
-    const label = date.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
-    const last = monthGroups[monthGroups.length - 1];
-    if (last && last.monthKey === monthKey) {
-      last.endCol = col;
-    } else {
-      monthGroups.push({ label, monthKey, startCol: col, endCol: col });
+    const globalCol = Math.floor(i / 7);
+    const row = i % 7;
+
+    let group = monthGroups[monthGroups.length - 1];
+    if (!group || group.monthKey !== monthKey) {
+      group = {
+        label: date.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
+        monthKey,
+        days: [],
+        cols: [],
+      };
+      monthGroups.push(group);
     }
-  }
+    if (group.cols[group.cols.length - 1] !== globalCol) group.cols.push(globalCol);
+    group.days.push({ date: d.date, count: d.count, globalCol, row });
+  });
 
   // Total active days + longest streak, computed straight from the
   // heatmap so the header reads like a real GitHub/LeetCode-style
@@ -234,10 +253,11 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
         question{totalContributions === 1 ? "" : "s"} attempted in the last year
       </span>
 
-      {/* Heatmap grid, broken into one flex item per month so it visibly
-          separates by month while still filling the full card width —
-          each item's flex-grow is proportional to how many weeks that
-          month spans, so every column ends up the same width. */}
+      {/* Heatmap grid, broken into one flex item per calendar month so it
+          visibly separates by month while still filling the full card
+          width — each item's flex-grow is proportional to how many weeks
+          that month's real days actually touch, so every column ends up
+          the same width and no month borrows another's days. */}
       {heatmap.length === 0 ? (
         <div className="py-10 text-center text-sm text-gq-text-secondary">
           No activity yet — solve a question to light up the map.
@@ -251,7 +271,7 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
                 <span
                   key={`${g.monthKey}-label`}
                   className="font-mono text-xs text-gq-text-secondary truncate"
-                  style={{ flexGrow: g.endCol - g.startCol + 1, flexBasis: 0, minWidth: 0 }}
+                  style={{ flexGrow: g.cols.length, flexBasis: 0, minWidth: 0 }}
                 >
                   {g.label}
                 </span>
@@ -261,24 +281,21 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
             {/* Month blocks */}
             <div className="flex" style={{ gap: MONTH_GAP }}>
               {monthGroups.map((g) => {
-                const cols = g.endCol - g.startCol + 1;
+                const colIndex = new Map(g.cols.map((c, idx) => [c, idx]));
                 return (
                   <div
                     key={g.monthKey}
-                    style={{ flexGrow: cols, flexBasis: 0, minWidth: 0 }}
+                    style={{ flexGrow: g.cols.length, flexBasis: 0, minWidth: 0 }}
                   >
                     <div
                       className="grid"
                       style={{
-                        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                        gridTemplateColumns: `repeat(${g.cols.length}, 1fr)`,
                         columnGap: CELL_GAP,
                         rowGap: CELL_GAP,
                       }}
                     >
-                      {heatmap.map((d, i) => {
-                        const col = Math.floor(i / 7);
-                        if (col < g.startCol || col > g.endCol) return null;
-                        const row = (i % 7) + 1;
+                      {g.days.map((d) => {
                         const level = levelForCount(d.count);
                         return (
                           <div
@@ -287,8 +304,8 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
                             style={{
                               background: HEAT_COLORS[level] ?? HEAT_COLORS[0],
                               boxShadow: HEAT_GLOW[level] ?? HEAT_GLOW[0],
-                              gridColumn: col - g.startCol + 1,
-                              gridRow: row,
+                              gridColumn: (colIndex.get(d.globalCol) ?? 0) + 1,
+                              gridRow: d.row + 1,
                             }}
                             title={`${d.date}: ${d.count} question${d.count === 1 ? "" : "s"} attempted`}
                           />
