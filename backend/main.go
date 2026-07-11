@@ -159,6 +159,11 @@ func main() {
 			r.Use(auth.RequireAdmin)
 			r.Post("/api/quests", apiHandlers.CreateQuest)
 		})
+
+		// Pulse: creating/deleting a post requires being logged in.
+		// Reading the feed does not — see the public routes below.
+		r.Post("/api/pulse/posts", apiHandlers.CreatePost)
+		r.Delete("/api/pulse/posts/{id}", apiHandlers.DeletePost)
 	})
 
 	// Question bank: public read-only endpoints, no auth required for
@@ -168,6 +173,13 @@ func main() {
 	r.Get("/api/topics", apiHandlers.Topics)
 	r.Get("/api/questions", apiHandlers.ListQuestions)
 	r.Get("/api/questions/{id}", apiHandlers.GetQuestion)
+
+	// Pulse: public read endpoints (browsing the feed doesn't require
+	// login, same as the question bank above).
+	r.Get("/api/pulse/posts", apiHandlers.ListPosts)
+	r.Get("/api/pulse/posts/{id}", apiHandlers.GetPost)
+	r.Get("/api/pulse/channels", apiHandlers.ListChannels)
+	r.Get("/api/pulse/trending", apiHandlers.TrendingHashtags)
 
 	addr := ":" + cfg.Port
 	log.Printf("listening on %s", addr)

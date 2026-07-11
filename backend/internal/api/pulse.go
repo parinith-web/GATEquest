@@ -1,0 +1,250 @@
+// Pulse: the CS community feed. Session 2 — data model + core posting
+// API. Comments, likes/dislikes, and bookmarks are separate endpoints
+// added in a later session; this file only covers creating, listing,
+// fetching, and deleting posts, plus the channel/trending hashtag
+// aggregates the sidebar needs.
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"gatequest-auth/internal/auth"
+	"gatequest-auth/internal/store"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+)
+
+// maxPostContentLength keeps posts tweet-sized rather than essay-sized —
+// long-form write-ups belong on the Q&A/discussion side of the product,
+// Pulse is for quick updates, links, and resources.
+const maxPostContentLength = 2000
+
+type postDTO struct {
+	ID           string   `json:"id"`
+	Author       string   `json:"author"`
+	AuthorAvatar string   `json:"authorAvatar"`
+	Content      string   `json:"content"`
+	MediaURL     *string  `json:"mediaUrl"`
+	MediaType    *string  `json:"mediaType"`
+	Hashtags     []string `json:"hashtags"`
+	LikeCount    int      `json:"likeCount"`
+	DislikeCount int      `json:"dislikeCount"`
+	CommentCount int      `json:"commentCount"`
+	ShareCount   int      `json:"shareCount"`
+	CreatedAt    string   `json:"createdAt"`
+	IsOwner      bool     `json:"isOwner"`
+}
+
+func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
+	return postDTO{
+		ID:           p.ID.String(),
+		Author:       p.AuthorName,
+		AuthorAvatar: p.AuthorAvatar,
+		Content:      p.Content,
+		MediaURL:     p.MediaURL,
+		MediaType:    p.MediaType,
+		Hashtags:     p.Hashtags,
+		LikeCount:    p.LikeCount,
+		DislikeCount: p.DislikeCount,
+		CommentCount: p.CommentCount,
+		ShareCount:   p.ShareCount,
+		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
+		IsOwner:      viewerID != uuid.Nil && viewerID == p.UserID,
+	}
+}
+
+// currentUserID returns the logged-in user's ID, or uuid.Nil if the
+// request is unauthenticated — several Pulse read endpoints (list/get/
+// channels/trending) are open to anonymous browsing like the question
+// bank, and only need the viewer ID to compute "isOwner" flags.
+func currentUserID(r *http.Request) uuid.UUID {
+	if u := auth.UserFromContext(r.Context()); u != nil {
+		return u.ID
+	}
+	return uuid.Nil
+}
+
+type createPostRequest struct {
+	Content   string  `json:"content"`
+	MediaURL  *string `json:"mediaUrl"`
+	MediaType *string `json:"mediaType"`
+}
+
+// POST /api/pulse/posts
+// Creates a post. #hashtags are parsed out of content server-side (see
+// store.ExtractHashtags) — there's no client-supplied hashtags field to
+// trust.
+func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var body createPostRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	content := strings.TrimSpace(body.Content)
+	if content == "" {
+		writeError(w, http.StatusBadRequest, "content is required")
+		return
+	}
+	if len(content) > maxPostContentLength {
+		writeError(w, http.StatusBadRequest, "content is too long")
+		return
+	}
+
+	if body.MediaURL != nil && strings.TrimSpace(*body.MediaURL) == "" {
+		body.MediaURL = nil
+	}
+	if body.MediaType != nil {
+		mt := strings.ToLower(strings.TrimSpace(*body.MediaType))
+		if mt != "image" && mt != "video" {
+			writeError(w, http.StatusBadRequest, "mediaType must be 'image' or 'video'")
+			return
+		}
+		body.MediaType = &mt
+	}
+	if body.MediaURL == nil {
+		// A media type with no URL doesn't mean anything.
+		body.MediaType = nil
+	}
+
+	post, err := h.Store.CreatePost(r.Context(), user.ID, content, body.MediaURL, body.MediaType)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create post")
+		return
+	}
+	writeJSON(w, http.StatusCreated, toPostDTO(*post, user.ID))
+}
+
+// GET /api/pulse/posts?hashtag=os&sort=hot&limit=20&offset=0
+// Public — no auth required to browse the feed, same as the question
+// bank. sort is one of "hot" (default), "new", "top".
+func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	filter := store.PostFilter{
+		Hashtag: q.Get("hashtag"),
+		Sort:    q.Get("sort"),
+		Limit:   limit,
+		Offset:  offset,
+	}
+
+	posts, err := h.Store.ListPosts(r.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load posts")
+		return
+	}
+
+	total, err := h.Store.CountPosts(r.Context(), filter.Hashtag)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to count posts")
+		return
+	}
+
+	viewerID := currentUserID(r)
+	out := make([]postDTO, 0, len(posts))
+	for _, p := range posts {
+		out = append(out, toPostDTO(p, viewerID))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"posts": out,
+		"total": total,
+	})
+}
+
+// GET /api/pulse/posts/{id}
+func (h *Handlers) GetPost(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid post id")
+		return
+	}
+
+	post, err := h.Store.GetPost(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "post not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load post")
+		return
+	}
+	writeJSON(w, http.StatusOK, toPostDTO(*post, currentUserID(r)))
+}
+
+// DELETE /api/pulse/posts/{id}
+// Only the author can delete their own post.
+func (h *Handlers) DeletePost(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid post id")
+		return
+	}
+
+	if err := h.Store.DeletePost(r.Context(), id, user.ID); err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "post not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete post")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type channelDTO struct {
+	Hashtag string `json:"hashtag"`
+	Count   int    `json:"count"`
+}
+
+// GET /api/pulse/channels?limit=20
+// Replaces the hardcoded `channels` sidebar array — real hashtag usage
+// counts across all of Pulse, most-used first.
+func (h *Handlers) ListChannels(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	channels, err := h.Store.ListChannels(r.Context(), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load channels")
+		return
+	}
+	out := make([]channelDTO, 0, len(channels))
+	for _, c := range channels {
+		out = append(out, channelDTO{Hashtag: c.Hashtag, Count: c.Count})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// GET /api/pulse/trending?limit=10
+// Same shape as channels, but scoped to the last 48h so a tag that was
+// huge last month doesn't sit at the top of "trending" forever.
+func (h *Handlers) TrendingHashtags(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	tags, err := h.Store.ListTrendingHashtags(r.Context(), 48*time.Hour, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load trending topics")
+		return
+	}
+	out := make([]channelDTO, 0, len(tags))
+	for _, c := range tags {
+		out = append(out, channelDTO{Hashtag: c.Hashtag, Count: c.Count})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
