@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Flame,
   GitBranch,
-  Hash,
-  Users,
   Bookmark,
-  ChevronDown,
   TrendingUp,
   RefreshCw,
   Cpu,
@@ -16,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
 import PostCard from "@/components/PostCard";
+import DebriefPanel from "@/components/pulse/DebriefPanel";
 import { useAuth } from "@/lib/auth-context";
 import {
   ChannelCount,
@@ -142,10 +140,11 @@ export default function PulsePage() {
       });
   }, []);
 
-  // Trending (last 48h) sidebar card, loaded once and refreshed
-  // alongside channels after a new post goes up.
+  // Trending (last 48h) card, loaded once and refreshed alongside
+  // channels after a new post goes up. Top 10 feeds the Debrief
+  // panel's "Trending Tags" tab.
   const loadTrending = useCallback(() => {
-    fetchPulseTrending(5)
+    fetchPulseTrending(10)
       .then(setTrending)
       .catch(() => {
         /* sidebar is non-critical — fail silently */
@@ -278,113 +277,10 @@ export default function PulsePage() {
           </div>
         </div>
 
-        {/* 3 Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left panel: Channels & Tools */}
-          <div className="lg:col-span-3 flex flex-col gap-6">
-            {/* Trending Card */}
-            {trending.length > 0 && (
-              <div className="border border-pulse-border rounded-lg bg-pulse-card p-5">
-                <div className="flex items-center gap-1.5 mb-3">
-                  <TrendingUp size={11} className="text-pulse-dim" />
-                  <span className="text-[11px] font-mono uppercase tracking-[1px] text-pulse-dim">
-                    TRENDING · 48H
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  {trending.map((t, i) => (
-                    <button
-                      key={t.hashtag}
-                      onClick={() => handleHashtagClick(t.hashtag)}
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded text-[12px] font-mono transition-colors text-left",
-                        activeHashtag === t.hashtag && viewMode === "feed"
-                          ? "text-pulse-blue bg-pulse-blue/5 border-l-2 border-pulse-blue pl-2"
-                          : "text-pulse-muted hover:text-pulse-text hover:bg-gq-card"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-pulse-dim w-3">
-                          {i + 1}
-                        </span>
-                        {t.hashtag}
-                      </div>
-                      <span className="text-[10px] text-pulse-dim">{t.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Channels Card */}
-            <div className="border border-pulse-border rounded-lg bg-pulse-card p-5">
-              <button className="flex items-center justify-between w-full mb-3 text-left">
-                <span className="text-[11px] font-mono uppercase tracking-[1px] text-pulse-dim">
-                  CHANNELS
-                </span>
-                <ChevronDown size={11} className="text-pulse-dim" />
-              </button>
-              <div className="flex flex-col gap-1">
-                {channels.length === 0 && (
-                  <p className="text-[11px] font-mono text-pulse-dim px-3 py-2">
-                    No channels yet — post something with a #hashtag.
-                  </p>
-                )}
-                {channels.map((ch) => (
-                  <button
-                    key={ch.hashtag}
-                    onClick={() => {
-                      setViewMode("feed");
-                      setActiveHashtag((current) =>
-                        current === ch.hashtag ? null : ch.hashtag,
-                      );
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2 rounded text-[12px] font-mono transition-colors text-left",
-                      activeHashtag === ch.hashtag
-                        ? "text-pulse-blue bg-pulse-blue/5 border-l-2 border-pulse-blue pl-2"
-                        : "text-pulse-muted hover:text-pulse-text hover:bg-gq-card"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Hash size={12} className="text-pulse-dim flex-shrink-0" />
-                      {ch.hashtag}
-                    </div>
-                    <span className="text-[10px] text-pulse-dim">{ch.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Tools */}
-            <div className="border border-pulse-border rounded-lg bg-pulse-card p-5 flex flex-col gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-[1px] text-pulse-dim mb-2 block">
-                TOOLS
-              </span>
-              <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-mono tracking-[0.8px] uppercase text-pulse-muted hover:text-pulse-text hover:bg-gq-card text-left transition-colors">
-                <Users size={14} className="text-pulse-dim" />
-                STUDY ROOMS
-              </button>
-              <button
-                onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-mono tracking-[0.8px] uppercase text-left transition-colors",
-                  viewMode === "bookmarks"
-                    ? "text-pulse-blue bg-pulse-blue/5"
-                    : "text-pulse-muted hover:text-pulse-text hover:bg-gq-card",
-                )}
-              >
-                <Bookmark
-                  size={14}
-                  className={viewMode === "bookmarks" ? "text-pulse-blue" : "text-pulse-dim"}
-                />
-                BOOKMARKS
-              </button>
-            </div>
-          </div>
-
-          {/* Center panel: Feed column */}
-          <div className="lg:col-span-9 flex flex-col gap-6">
+        {/* 2 Column Grid Layout: feed + Debrief/Trending panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left/main panel: Feed column */}
+          <div className="lg:col-span-8 flex flex-col gap-6">
             {/* Compose box */}
             {user ? (
               <div className="border border-pulse-border rounded-lg bg-pulse-card p-4 flex flex-col gap-3">
@@ -586,11 +482,27 @@ export default function PulsePage() {
                 )}
               </div>
 
-              {/* Total nodes */}
-              <div className="px-2 py-1 rounded-sm border border-pulse-border bg-pulse-card">
-                <span className="text-[12px] font-mono text-pulse-muted">
-                  {viewMode === "bookmarks" ? "Saved" : "Total Nodes"}: {total.toLocaleString()}
-                </span>
+              <div className="flex items-center gap-2">
+                {/* Bookmarks toggle */}
+                <button
+                  onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
+                  title={viewMode === "bookmarks" ? "Back to feed" : "Your bookmarks"}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-mono uppercase tracking-wider transition-colors",
+                    viewMode === "bookmarks"
+                      ? "border-pulse-blue/40 bg-pulse-blue/10 text-pulse-blue"
+                      : "border-pulse-border bg-transparent text-pulse-muted hover:text-pulse-text",
+                  )}
+                >
+                  <Bookmark size={12} />
+                </button>
+
+                {/* Total nodes */}
+                <div className="px-2 py-1 rounded-sm border border-pulse-border bg-pulse-card">
+                  <span className="text-[12px] font-mono text-pulse-muted">
+                    {viewMode === "bookmarks" ? "Saved" : "Total Nodes"}: {total.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -680,6 +592,15 @@ export default function PulsePage() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Right panel: live Mock Debrief chat + Trending Tags */}
+          <div className="lg:col-span-4">
+            <DebriefPanel
+              trending={trending}
+              activeHashtag={activeHashtag}
+              onHashtagClick={handleHashtagClick}
+            />
           </div>
         </div>
       </div>
