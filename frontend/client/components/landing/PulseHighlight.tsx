@@ -44,7 +44,7 @@ export function PulseHighlight() {
       id="pulse"
       className="relative overflow-hidden border-t border-white/[0.06] px-6 py-24 md:py-32"
     >
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         {/* Masked cluster — crisp dead-center, fading out toward every
             edge, so the composition reads as one atmospheric frame
             rather than a flat grid of boxes. */}
@@ -52,8 +52,8 @@ export function PulseHighlight() {
           className="relative flex flex-col items-center justify-center gap-2 overflow-x-auto py-6 no-scrollbar md:overflow-visible md:-translate-x-3 md:gap-3 md:py-10 lg:-translate-x-5"
           style={{
             WebkitMaskImage:
-              "radial-gradient(circle, black 35%, transparent 85%)",
-            maskImage: "radial-gradient(circle, black 35%, transparent 85%)",
+              "radial-gradient(circle, black 35%, transparent 92%)",
+            maskImage: "radial-gradient(circle, black 35%, transparent 92%)",
           }}
         >
           <motion.div
@@ -105,7 +105,7 @@ export function PulseHighlight() {
                 </span>
               </div>
 
-              <div className="flex shrink-0 flex-col gap-2">
+              <div className="flex shrink-0 flex-col gap-2 md:ml-4 lg:ml-8">
                 <LiveFeedMock />
               </div>
             </div>
@@ -154,7 +154,7 @@ export function PulseHighlight() {
                   className="w-[320px]"
                 />
               </div>
-              <div className="hidden shrink-0 md:flex">
+              <div className="hidden shrink-0 md:mt-6 md:flex">
                 <FeedPostCardMock
                   name={USERS.rohan.name}
                   avatar={USERS.rohan.avatar}
