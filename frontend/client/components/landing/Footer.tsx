@@ -43,7 +43,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="w-full bg-[#1B4278] px-6 py-8 md:px-[106px] md:py-10">
+    <footer className="w-full bg-[#1B4278] px-6 py-10 md:px-[106px] md:py-14">
       <div className="mx-auto flex w-fit max-w-full flex-col">
         {/* Top: logo left, wordmark + columns stacked right */}
         <div className="flex flex-col gap-10 md:flex-row md:items-start md:gap-[360px]">
