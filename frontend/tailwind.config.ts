@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./client/**/*.{ts,tsx}"],
+  content: ["./client/**/*.{ts,tsx}", "./index.html"],
   prefix: "",
   theme: {
     container: {
@@ -14,11 +14,15 @@ export default {
     },
     extend: {
       fontFamily: {
-        inter: ["Inter", "-apple-system", "Roboto", "Helvetica", "sans-serif"],
+        inter: ["InterVariable", "Inter", "-apple-system", "Roboto", "Helvetica", "sans-serif"],
+        // display/dmsans both resolve to Inter Display (the display optical-size
+        // cut of the Inter variable font) — used by the landing page headlines.
+        display: ["InterDisplay", "InterVariable", "Inter", "sans-serif"],
+        dmsans: ["InterDisplay", "InterVariable", "Inter", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
         jetbrains: ["JetBrains Mono", "monospace"],
         firacode: ["Fira Code", "monospace"],
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["InterVariable", "Inter", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

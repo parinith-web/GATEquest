@@ -8,6 +8,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import OnboardingMore from "./pages/OnboardingMore";
@@ -50,10 +53,38 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// "/" is shared by the public landing page and the signed-in dashboard:
+// signed-out visitors see the marketing Landing page, signed-in users see
+// the Index dashboard — same URL either way, so links/bookmarks to "/"
+// always resolve to the right thing for whoever opens them.
+const HomeRoute = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gq-bg-main text-gq-text-muted">
+        Loading…
+      </div>
+    );
+  }
+  if (!user) {
+    return <Landing />;
+  }
+  if (!user.branch) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (!user.username) {
+    return <Navigate to="/onboarding/username" replace />;
+  }
+  return <Index />;
+};
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<Login />} />
-    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+    <Route path="/" element={<HomeRoute />} />
+    <Route path="/privacy" element={<Privacy />} />
+    <Route path="/terms" element={<Terms />} />
     <Route path="/onboarding" element={<Onboarding />} />
     <Route path="/onboarding/more" element={<OnboardingMore />} />
     <Route path="/onboarding/username" element={<OnboardingUsername />} />

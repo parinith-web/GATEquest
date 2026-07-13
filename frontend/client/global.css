@@ -79,9 +79,25 @@
     @apply h-full;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-[#0E0E0E] text-white;
     font-family: 'Inter', -apple-system, Roboto, Helvetica, sans-serif;
+  }
+
+  ::selection {
+    background: #5da2fa;
+    color: #0e0e0e;
+  }
+
+  /* Fixed navbar height compensation for in-page anchor links (#roadmaps,
+     #quests, #pulse, #explore, #community) on the landing page so their
+     headings don't land underneath the nav when jumped to. */
+  [id] {
+    scroll-margin-top: 6rem;
   }
 
   :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
@@ -121,4 +137,22 @@
   .font-inter {
     font-family: 'Inter', sans-serif;
   }
+}
+
+.gradient-head {
+  background-image: linear-gradient(0deg, rgb(168, 168, 168) 0%, rgb(255, 255, 255) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Hides scrollbars while keeping content scrollable — used in the landing
+   page's mock dashboard/feed panels so they read as clean product UI rather
+   than a raw overflow box. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
