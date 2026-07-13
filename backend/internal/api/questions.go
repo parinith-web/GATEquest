@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"gatequest-auth/internal/debrief"
 	"gatequest-auth/internal/media"
 	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
@@ -24,10 +25,17 @@ type Handlers struct {
 	// passed in — see api.New, which always constructs one (possibly
 	// unconfigured, if Cloudinary env vars are unset).
 	Media *media.Cloudinary
+	// Debrief and Hub back the Pulse Debrief chat room handlers
+	// (pulse_debrief.go, session 4). Both nil-safe at the call site
+	// (PostDebriefMessage skips the broadcast if Hub is nil) so this
+	// package still compiles/tests before main.go is updated to
+	// construct and pass them in — see session 4d for that wiring.
+	Debrief *debrief.Service
+	Hub     *debrief.Hub
 }
 
-func New(st *store.Store, questSvc *quest.Service, mediaClient *media.Cloudinary) *Handlers {
-	return &Handlers{Store: st, Quest: questSvc, Media: mediaClient}
+func New(st *store.Store, questSvc *quest.Service, mediaClient *media.Cloudinary, debriefSvc *debrief.Service, hub *debrief.Hub) *Handlers {
+	return &Handlers{Store: st, Quest: questSvc, Media: mediaClient, Debrief: debriefSvc, Hub: hub}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

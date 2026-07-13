@@ -12,6 +12,7 @@ import (
 	"gatequest-auth/internal/api"
 	"gatequest-auth/internal/auth"
 	"gatequest-auth/internal/config"
+	"gatequest-auth/internal/debrief"
 	"gatequest-auth/internal/media"
 	"gatequest-auth/internal/quest"
 	"gatequest-auth/internal/store"
@@ -94,7 +95,15 @@ func main() {
 	if !mediaClient.Configured() {
 		log.Print("WARNING: CLOUDINARY_URL not set — Pulse media upload will return 503 until it is")
 	}
-	apiHandlers := api.New(st, questSvc, mediaClient)
+	// Pulse Debrief: the per-branch post-contest chat room (session 4).
+	// debriefSvc owns the window/branch/rate-limit rules; hub is the
+	// in-memory SSE fan-out (session 4a) that PostDebriefMessage
+	// broadcasts into and the stream handler (session 4c) subscribes
+	// from. Routes mounted below under the RequireAuth group
+	// (session 4d).
+	debriefSvc := debrief.NewService(st)
+	debriefHub := debrief.NewHub()
+	apiHandlers := api.New(st, questSvc, mediaClient, debriefSvc, debriefHub)
 
 	waHandlers, err := auth.NewWebAuthnHandlers(mgr)
 	if err != nil {
@@ -109,6 +118,12 @@ func main() {
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	defer schedulerCancel()
 	go quest.NewScheduler(questSvc).Start(schedulerCtx)
+
+	// Pulse Debrief cleanup (session 5): periodically purges messages
+	// from rooms whose 12h window has fully lapsed. Independent ticker
+	// from the quest scheduler above (see debrief.Cleaner's doc comment
+	// for why), but shares the same cancellation context/lifetime.
+	go debrief.NewCleaner(st).Start(schedulerCtx)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -188,6 +203,19 @@ func main() {
 		// file here first and gets back a URL to attach to the post,
 		// rather than sending the raw bytes as part of CreatePost.
 		r.Post("/api/pulse/upload", apiHandlers.UploadMedia)
+
+		// Pulse Debrief (session 4): the temporary, branch-scoped chat
+		// room that opens once a weekly quest closes. All under
+		// RequireAuth like the rest of Pulse's write/personal routes —
+		// there's no public variant of these, since "which room" is
+		// derived from the caller's own branch (never a client-supplied
+		// ID) and isn't something an anonymous request has. /active and
+		// /active/messages are session 4b (plain CRUD-shaped); /stream
+		// is session 4c (the SSE connection).
+		r.Get("/api/pulse/debrief/active", apiHandlers.GetActiveDebriefRoom)
+		r.Get("/api/pulse/debrief/active/messages", apiHandlers.ListDebriefMessages)
+		r.Post("/api/pulse/debrief/active/messages", apiHandlers.PostDebriefMessage)
+		r.Get("/api/pulse/debrief/active/stream", apiHandlers.StreamDebriefMessages)
 	})
 
 	// Question bank: public read-only endpoints, no auth required for
