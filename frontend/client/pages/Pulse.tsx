@@ -282,14 +282,14 @@ export default function PulsePage() {
                     placeholder="Share an experience, a resource, or a #hashtag worth discussing..."
                     rows={1}
                     maxLength={2000}
-                    className="flex-1 resize-none bg-transparent text-[13px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1"
+                    className="flex-1 resize-none bg-transparent text-[15px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1"
                   />
                 </div>
 
                 {uploading && (
                   <div className="flex items-center gap-2 w-fit px-3 py-2 rounded-md border border-gq-border bg-gq-card">
                     <Loader2 size={13} className="animate-spin text-gq-blue" />
-                    <span className="text-[11px] text-gq-text-muted">
+                    <span className="text-[13px] text-gq-text-muted">
                       Uploading... {uploadProgress}%
                     </span>
                   </div>
@@ -334,7 +334,7 @@ export default function PulsePage() {
                 )}
 
                 {composeError && (
-                  <p className="text-[12px] text-pulse-red">{composeError}</p>
+                  <p className="text-[14px] text-pulse-red">{composeError}</p>
                 )}
 
                 <div className="flex items-center justify-between border-t border-gq-border pt-2.5">
@@ -358,7 +358,7 @@ export default function PulsePage() {
                     >
                       <Film size={13} />
                     </button>
-                    <span className="text-[10px] text-gq-text-muted truncate">
+                    <span className="text-[12px] text-gq-text-muted truncate">
                       {composeText.length}/2000 · use #hashtags to tag a channel
                     </span>
                   </div>
@@ -366,7 +366,7 @@ export default function PulsePage() {
                     onClick={handlePost}
                     disabled={!composeText.trim() || posting || uploading}
                     className={cn(
-                      "flex items-center gap-1.5 shrink-0 rounded-[6px] px-2.5 py-1 text-[10px] font-semibold transition-colors",
+                      "flex items-center gap-1.5 shrink-0 rounded-[6px] px-2.5 py-1 text-[12px] font-semibold transition-colors",
                       composeText.trim() && !posting && !uploading
                         ? "bg-gq-blue text-[#0E0E0E] hover:opacity-90"
                         : "bg-gq-border text-gq-text-muted cursor-not-allowed"
@@ -379,7 +379,7 @@ export default function PulsePage() {
               </div>
             ) : (
               <div className="rounded-[10px] border border-dashed border-gq-border bg-gq-card p-4 text-center">
-                <p className="text-[12px] text-gq-text-muted">
+                <p className="text-[14px] text-gq-text-muted">
                   Log in to post, comment, and react on Pulse.
                 </p>
               </div>
@@ -391,7 +391,7 @@ export default function PulsePage() {
                 {viewMode === "bookmarks" ? (
                   <button
                     onClick={() => setViewMode("feed")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[11px] text-gq-blue"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[13px] text-gq-blue"
                   >
                     <Bookmark size={12} />
                     Your bookmarks
@@ -406,7 +406,7 @@ export default function PulsePage() {
                     setSortMode("hot");
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-colors",
                     sortMode === "hot"
                       ? "border-gq-border bg-gq-card text-gq-text"
                       : "border-gq-border bg-transparent text-gq-text-muted hover:text-gq-text"
@@ -423,7 +423,7 @@ export default function PulsePage() {
                     setSortMode("new");
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-colors",
                     sortMode === "new"
                       ? "border-gq-border bg-gq-card text-gq-text"
                       : "border-gq-border bg-transparent text-gq-text-muted hover:text-gq-text"
@@ -440,7 +440,7 @@ export default function PulsePage() {
                     setSortMode("top");
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-colors",
                     sortMode === "top"
                       ? "border-gq-border bg-gq-card text-gq-text"
                       : "border-gq-border bg-transparent text-gq-text-muted hover:text-gq-text"
@@ -453,7 +453,7 @@ export default function PulsePage() {
                 {activeHashtag && (
                   <button
                     onClick={() => setActiveHashtag(null)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[11px] text-gq-blue"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[13px] text-gq-blue"
                   >
                     #{activeHashtag}
                     <X size={11} />
@@ -469,7 +469,7 @@ export default function PulsePage() {
                   onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
                   title={viewMode === "bookmarks" ? "Back to feed" : "Your bookmarks"}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] transition-colors",
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[13px] transition-colors",
                     viewMode === "bookmarks"
                       ? "border-gq-blue/40 bg-gq-blue/10 text-gq-blue"
                       : "border-gq-border bg-transparent text-gq-text-muted hover:text-gq-text",
@@ -480,7 +480,7 @@ export default function PulsePage() {
 
                 {/* Total nodes */}
                 <div className="px-2.5 py-1.5 rounded-full border border-gq-border bg-gq-card">
-                  <span className="text-[11px] text-gq-text-muted">
+                  <span className="text-[13px] text-gq-text-muted">
                     {viewMode === "bookmarks" ? "Saved" : "Total"}: {total.toLocaleString()}
                   </span>
                 </div>
@@ -513,13 +513,13 @@ export default function PulsePage() {
 
             {!loading && error && (
               <div className="flex flex-col items-center gap-2 py-16 text-center">
-                <p className="text-[12px] text-pulse-red">{error}</p>
+                <p className="text-[14px] text-pulse-red">{error}</p>
               </div>
             )}
 
             {!loading && !error && viewMode === "bookmarks" && !user && (
               <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-gq-border rounded-[10px]">
-                <p className="text-[12px] text-gq-text-muted">
+                <p className="text-[14px] text-gq-text-muted">
                   Log in to see posts you've bookmarked.
                 </p>
               </div>
@@ -527,7 +527,7 @@ export default function PulsePage() {
 
             {!loading && !error && posts.length === 0 && !(viewMode === "bookmarks" && !user) && (
               <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-gq-border rounded-[10px]">
-                <p className="text-[12px] text-gq-text-muted">
+                <p className="text-[14px] text-gq-text-muted">
                   {viewMode === "bookmarks"
                     ? "You haven't bookmarked anything yet."
                     : activeHashtag
@@ -567,7 +567,7 @@ export default function PulsePage() {
                   ) : (
                     <RefreshCw size={12} />
                   )}
-                  <span className="text-[11px]">
+                  <span className="text-[13px]">
                     {loadingMore ? "Loading..." : "Load more"}
                   </span>
                 </button>

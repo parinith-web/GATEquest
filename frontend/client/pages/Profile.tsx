@@ -133,7 +133,7 @@ function UserHeader({
       <button
         type="button"
         onClick={onLogout}
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 px-3 py-1.5 rounded-[4px] border border-gq-border text-gq-text-secondary text-xs font-medium tracking-wide hover:text-white hover:border-gq-accent/40 transition-colors"
+        className="absolute top-12 right-4 sm:right-6 px-3 py-1.5 rounded-[4px] border border-gq-border text-gq-text-secondary text-xs font-medium tracking-wide hover:text-white hover:border-gq-accent/40 transition-colors"
       >
         Log out
       </button>

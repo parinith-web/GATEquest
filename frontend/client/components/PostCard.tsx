@@ -227,8 +227,8 @@ export default function PostCard({
           alt={author}
           className="h-6 w-6 shrink-0 rounded-full bg-black object-cover"
         />
-        <span className="text-[11px] font-medium text-gq-text">{author}</span>
-        <span className="text-[9.5px] text-gq-text-muted">· {timeAgo(createdAt)}</span>
+        <span className="text-[13px] font-medium text-gq-text">{author}</span>
+        <span className="text-[11.5px] text-gq-text-muted">· {timeAgo(createdAt)}</span>
 
         <div className="ml-auto flex items-center gap-1.5">
           {hashtags.length > 0 && (
@@ -237,7 +237,7 @@ export default function PostCard({
                 <button
                   key={tag}
                   onClick={() => onHashtagClick?.(tag)}
-                  className="rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[8.5px] font-medium uppercase tracking-[0.04em] text-gq-blue hover:bg-gq-blue/25 transition-colors"
+                  className="rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue hover:bg-gq-blue/25 transition-colors"
                 >
                   #{tag}
                 </button>
@@ -257,7 +257,7 @@ export default function PostCard({
       </div>
 
       {/* Body */}
-      <p className="text-[12px] leading-[1.55] text-gq-text-secondary whitespace-pre-wrap">
+      <p className="text-[14px] leading-[1.55] text-gq-text-secondary whitespace-pre-wrap">
         {content}
       </p>
 
@@ -278,7 +278,7 @@ export default function PostCard({
       )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-2 text-[9.5px] text-gq-text-muted flex-wrap">
+        <div className="flex items-center gap-4 pt-2 text-[11.5px] text-gq-text-muted flex-wrap">
           {/* Like (upvote) */}
           <button
             onClick={() => handleVote(1)}
@@ -352,16 +352,16 @@ export default function PostCard({
             {commentsLoading && (
               <div className="flex items-center gap-2 py-2 text-gq-text-muted">
                 <Loader2 size={12} className="animate-spin" />
-                <span className="text-[10.5px]">Loading replies...</span>
+                <span className="text-[12.5px]">Loading replies...</span>
               </div>
             )}
 
             {!commentsLoading && commentsError && (
-              <p className="text-[10.5px] text-pulse-red">{commentsError}</p>
+              <p className="text-[12.5px] text-pulse-red">{commentsError}</p>
             )}
 
             {!commentsLoading && comments.length === 0 && !commentsError && (
-              <p className="text-[10.5px] text-gq-text-muted">
+              <p className="text-[12.5px] text-gq-text-muted">
                 No replies yet — be the first to respond.
               </p>
             )}
@@ -377,10 +377,10 @@ export default function PostCard({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-medium text-gq-text">
+                        <span className="text-[12px] font-medium text-gq-text">
                           {c.author}
                         </span>
-                        <span className="text-[8.5px] text-gq-text-muted">
+                        <span className="text-[10.5px] text-gq-text-muted">
                           {timeAgo(c.createdAt)}
                         </span>
                         {c.isOwner && (
@@ -393,7 +393,7 @@ export default function PostCard({
                           </button>
                         )}
                       </div>
-                      <p className="text-[10.5px] leading-[1.4] text-gq-text-secondary whitespace-pre-wrap">
+                      <p className="text-[12.5px] leading-[1.4] text-gq-text-secondary whitespace-pre-wrap">
                         {c.content}
                       </p>
                     </div>
@@ -415,13 +415,13 @@ export default function PostCard({
                   }}
                   placeholder="Write a reply..."
                   maxLength={1000}
-                  className="flex-1 bg-transparent border border-gq-border rounded-[6px] px-2.5 py-1.5 text-[11px] text-gq-text placeholder:text-gq-text-muted outline-none focus:border-gq-blue/40"
+                  className="flex-1 bg-transparent border border-gq-border rounded-[6px] px-2.5 py-1.5 text-[13px] text-gq-text placeholder:text-gq-text-muted outline-none focus:border-gq-blue/40"
                 />
                 <button
                   onClick={handlePostComment}
                   disabled={!commentDraft.trim() || postingComment}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-[10px] font-semibold transition-colors",
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-[12px] font-semibold transition-colors",
                     commentDraft.trim() && !postingComment
                       ? "bg-gq-blue text-[#0E0E0E] hover:opacity-90"
                       : "bg-gq-border text-gq-text-muted cursor-not-allowed",
@@ -432,7 +432,7 @@ export default function PostCard({
                 </button>
               </div>
             ) : (
-              <p className="text-[11px] text-gq-text-muted">
+              <p className="text-[13px] text-gq-text-muted">
                 Log in to join the conversation.
               </p>
             )}
