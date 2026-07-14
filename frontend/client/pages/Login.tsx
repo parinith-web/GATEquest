@@ -72,16 +72,18 @@ export default function Login() {
       }}
     >
       <div className="w-full max-w-[380px]">
-        <div className="flex flex-col items-center gap-3 mb-10">
+        <div className="flex flex-col items-center gap-5 mb-12">
           <img
-            src="https://api.builder.io/api/v1/image/assets/TEMP/2d820a83d1d61eb1b70ca251f31eb0a04662f9ff?width=60"
+            src="/brand/gatequest-mark-blue.png"
             alt="GATEquest"
-            className="w-8 h-8"
+            className="w-16 h-16 drop-shadow-[0_0_40px_rgba(59,130,246,0.35)]"
           />
-          <h1 className="text-white text-2xl font-bold">Welcome to GATEquest</h1>
-          <p className="text-gq-text-muted text-sm text-center">
-            Sign in to track your quests, streaks, and progress.
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <h1 className="text-white text-3xl font-bold tracking-tight">Welcome to GATEquest</h1>
+            <p className="text-gq-text-muted text-sm text-center">
+              Sign in to track your quests, streaks, and progress.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -93,7 +95,7 @@ export default function Login() {
         <button
           onClick={loginWithGoogle}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-3 rounded-xl bg-white text-black font-semibold h-12 hover:bg-white/90 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 rounded-xl bg-white text-black font-semibold h-12 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)] hover:bg-white/90 transition-colors disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.56 2.7-3.87 2.7-6.62Z" />
@@ -115,7 +117,7 @@ export default function Login() {
             <button
               onClick={handlePasskeySignIn}
               disabled={busy}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-gq-border bg-gq-bg-card text-white font-semibold h-12 hover:bg-white/5 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-gq-border bg-gq-bg-card text-white font-semibold h-12 hover:bg-white/5 hover:border-white/20 transition-colors disabled:opacity-50"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5Zm-3 8V6a3 3 0 1 1 6 0v3H9Zm3 3a2 2 0 0 1 1 3.73V18a1 1 0 1 1-2 0v-2.27A2 2 0 0 1 12 12Z" fill="currentColor" />
