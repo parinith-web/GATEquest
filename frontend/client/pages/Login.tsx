@@ -65,21 +65,21 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-start pt-[9vh] px-6"
+      className="min-h-screen flex flex-col items-center justify-start pt-[5vh] pb-[80px] px-6"
       style={{
         background:
           "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF",
       }}
     >
       <div className="w-full max-w-[460px]">
-        <div className="flex flex-col items-center mb-[100px]">
+        <div className="flex flex-col items-center mb-[110px]">
           <img
             src="/brand/gatequest-mark-blue.png"
             alt="GATEquest"
-            className="w-[280px] h-[280px]"
+            className="w-[360px] h-[360px]"
           />
-          <div className="flex flex-col items-center gap-[23px] mt-[40px]">
-            <h1 className="text-white text-4xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
+          <div className="flex flex-col items-center gap-[12px] -mt-[16px]">
+            <h1 className="text-white text-3xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
             <p className="text-gq-text-muted text-base text-center">
               Sign in to track your quests, streaks, and progress.
             </p>
@@ -106,7 +106,7 @@ export default function Login() {
           Continue with Google
         </button>
 
-        <div className="flex items-center gap-3 my-[29px]">
+        <div className="flex items-center gap-3 my-[16px]">
           <div className="h-px flex-1 bg-white/10" />
           <span className="text-gq-text-muted text-xs">OR</span>
           <div className="h-px flex-1 bg-white/10" />
@@ -138,14 +138,14 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-gq-border bg-gq-bg-card text-white h-12 px-4 outline-none focus:border-gq-blue"
+              className="w-full rounded-xl border border-gq-border bg-[#1a1a1c] text-white placeholder:text-gray-500 h-12 px-4 outline-none focus:border-gq-blue"
             />
             <input
               type="text"
               placeholder="Your name (optional)"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-gq-border bg-gq-bg-card text-white h-12 px-4 outline-none focus:border-gq-blue"
+              className="w-full rounded-xl border border-gq-border bg-[#1a1a1c] text-white placeholder:text-gray-500 h-12 px-4 outline-none focus:border-gq-blue"
             />
             <button
               onClick={handlePasskeyRegister}
