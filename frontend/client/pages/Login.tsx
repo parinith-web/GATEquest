@@ -65,21 +65,21 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-6"
+      className="min-h-screen flex flex-col items-center justify-start pt-[9vh] px-6"
       style={{
         background:
           "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF",
       }}
     >
-      <div className="w-full max-w-[384px]">
-        <div className="flex flex-col items-center mb-[138px]">
+      <div className="w-full max-w-[460px]">
+        <div className="flex flex-col items-center mb-[100px]">
           <img
             src="/brand/gatequest-mark-blue.png"
             alt="GATEquest"
-            className="w-[230px] h-[230px]"
+            className="w-[280px] h-[280px]"
           />
-          <div className="flex flex-col items-center gap-[23px] mt-[62px]">
-            <h1 className="text-white text-4xl font-bold tracking-tight">Welcome to GATEquest</h1>
+          <div className="flex flex-col items-center gap-[23px] mt-[40px]">
+            <h1 className="text-white text-4xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
             <p className="text-gq-text-muted text-base text-center">
               Sign in to track your quests, streaks, and progress.
             </p>
