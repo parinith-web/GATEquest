@@ -43,9 +43,10 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
   }, [id]);
 
   useEffect(() => {
+    if (submitted) return;
     const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [submitted]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
