@@ -12,6 +12,7 @@ import {
 import { fileToAvatarDataURL } from "@/lib/image";
 import { getLevelProgress } from "@/lib/leveling";
 import { BRANCH_SUBJECT, getBranch, isWiredBranch } from "@/lib/gate-api";
+import { STREAK_BADGES } from "@/lib/streak-badges";
 
 // ── Heatmap helpers ──────────────────────────────────────────────────────────
 
@@ -23,6 +24,26 @@ function levelForCount(count: number): number {
   if (count <= 4) return 2;
   if (count <= 6) return 3;
   return 4;
+}
+
+// Longest run of consecutive active days anywhere in the heatmap window
+// (~year). This is the "have they ever maintained a streak this long"
+// number that badge unlocking is based on — distinct from the *current*
+// streak (which resets the moment a day is missed) shown elsewhere on
+// the dashboard. Same computation the Activity Map's "MAX STREAK" stat
+// already does, lifted up here so Badges can use it too.
+function longestStreakFromHeatmap(heatmap: HeatmapDay[]): number {
+  let longest = 0;
+  let current = 0;
+  for (const d of heatmap) {
+    if (d.count > 0) {
+      current += 1;
+      longest = Math.max(longest, current);
+    } else {
+      current = 0;
+    }
+  }
+  return longest;
 }
 
 function timeAgo(iso: string): string {
@@ -507,71 +528,66 @@ function SolveCounter({ progress }: SolveCounterProps) {
   );
 }
 
-function Badges() {
-  const badges = [
-    {
-      icon: (
-        <svg width="24" height="39" viewBox="0 0 24 39" fill="none">
-          <path d="M12 24C13.65 24 15.0625 23.4125 16.2375 22.2375C17.4125 21.0625 18 19.65 18 18V12C18 10.35 17.4125 8.9375 16.2375 7.7625C15.0625 6.5875 13.65 6 12 6C10.35 6 8.9375 6.5875 7.7625 7.7625C6.5875 8.9375 6 10.35 6 12V18C6 19.65 6.5875 21.0625 7.7625 22.2375C8.9375 23.4125 10.35 24 12 24ZM9 19.5H15V16.5H9V19.5ZM9 13.5H15V10.5H9V13.5ZM12 27C10.375 27 8.86875 26.6 7.48125 25.8C6.09375 25 5 23.9 4.2 22.5H0V19.5H3.15C3.075 19 3.03125 18.5 3.01875 18C3.00625 17.5 3 17 3 16.5H0V13.5H3C3 13 3.00625 12.5 3.01875 12C3.03125 11.5 3.075 11 3.15 10.5H0V7.5H4.2C4.55 6.925 4.94375 6.3875 5.38125 5.8875C5.81875 5.3875 6.325 4.95 6.9 4.575L4.5 2.1L6.6 0L9.825 3.225C10.525 3 11.2375 2.8875 11.9625 2.8875C12.6875 2.8875 13.4 3 14.1 3.225L17.4 0L19.5 2.1L17.025 4.575C17.6 4.95 18.1187 5.38125 18.5812 5.86875C19.0437 6.35625 19.45 6.9 19.8 7.5H24V10.5H20.85C20.925 11 20.9688 11.5 20.9813 12C20.9938 12.5 21 13 21 13.5H24V16.5H21C21 17 20.9938 17.5 20.9813 18C20.9688 18.5 20.925 19 20.85 19.5H24V22.5H19.8C19 23.9 17.9062 25 16.5187 25.8C15.1312 26.6 13.625 27 12 27Z" fill="#ADC6FF"/>
-        </svg>
-      ),
-      name: "Exterminator",
-      desc: "100+ Debugged\nSessions",
-    },
-    {
-      icon: (
-        <svg width="24" height="42" viewBox="0 0 24 42" fill="none">
-          <path d="M9.825 24.3L17.5875 15H11.5875L12.675 6.4875L5.7375 16.5H10.95L9.825 24.3ZM6 30L7.5 19.5H0L13.5 0H16.5L15 12H24L9 30H6Z" fill="#ADC6FF"/>
-        </svg>
-      ),
-      name: "Overclocked",
-      desc: "Solved 5 Quests\n< 1hr",
-    },
-    {
-      icon: (
-        <svg width="30" height="42" viewBox="0 0 30 42" fill="none">
-          <path d="M15 30C12.925 30 10.975 29.6063 9.15 28.8188C7.325 28.0312 5.7375 26.9625 4.3875 25.6125C3.0375 24.2625 1.96875 22.675 1.18125 20.85C0.39375 19.025 0 17.075 0 15C0 12.925 0.39375 10.975 1.18125 9.15C1.96875 7.325 3.0375 5.7375 4.3875 4.3875C5.7375 3.0375 7.325 1.96875 9.15 1.18125C10.975 0.39375 12.925 0 15 0C17.075 0 19.025 0.39375 20.85 1.18125C22.675 1.96875 24.2625 3.0375 25.6125 4.3875C26.9625 5.7375 28.0312 7.325 28.8188 9.15C29.6063 10.975 30 12.925 30 15C30 17.075 29.6063 19.025 28.8188 20.85C28.0312 22.675 26.9625 24.2625 25.6125 25.6125C24.2625 26.9625 22.675 28.0312 20.85 28.8188C19.025 29.6063 17.075 30 15 30ZM15 27C18.35 27 21.1875 25.8375 23.5125 23.5125C25.8375 21.1875 27 18.35 27 15C27 11.65 25.8375 8.8125 23.5125 6.4875C21.1875 4.1625 18.35 3 15 3C11.65 3 8.8125 4.1625 6.4875 6.4875C4.1625 8.8125 3 11.65 3 15C3 18.35 4.1625 21.1875 6.4875 23.5125C8.8125 25.8375 11.65 27 15 27Z" fill="#ADC6FF"/>
-      </svg>
-    ),
-      name: "Syntax\nSniper",
-      desc: "First-try\nAcceptances",
-    },
-    {
-      icon: (
-        <svg width="27" height="39" viewBox="0 0 27 39" fill="none">
-          <path d="M9 18V9H18V18H9ZM12 15H15V12H12V15ZM9 27V24H6C5.175 24 4.46875 23.7062 3.88125 23.1187C3.29375 22.5312 3 21.825 3 21V18H0V15H3V12H0V9H3V6C3 5.175 3.29375 4.46875 3.88125 3.88125C4.46875 3.29375 5.175 3 6 3H9V0H12V3H15V0H18V3H21C21.825 3 22.5312 3.29375 23.1187 3.88125C23.7062 4.46875 24 5.175 24 6V9H27V12H24V15H27V18H24V21C24 21.825 23.7062 22.5312 23.1187 23.1187C22.5312 23.7062 21.825 24 21 24H18V27H15V24H12V27H9ZM21 21V6H6V21H21Z" fill="#ADC6FF"/>
-        </svg>
-      ),
-      name: "Core\nMaster",
-      desc: "OS Concept\nCompletion",
-    },
-  ];
+function LockIcon() {
+  return (
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+      <path
+        d="M2 16C1.45 16 0.979167 15.8042 0.5875 15.4125C0.195833 15.0208 0 14.55 0 14V7C0 6.45 0.195833 5.97917 0.5875 5.5875C0.979167 5.19583 1.45 5 2 5H3V3.5C3 2.53333 3.34167 1.70833 4.025 1.025C4.70833 0.341667 5.53333 0 6.5 0C7.46667 0 8.29167 0.341667 8.975 1.025C9.65833 1.70833 10 2.53333 10 3.5V5H11C11.55 5 12.0208 5.19583 12.4125 5.5875C12.8042 5.97917 13 6.45 13 7V14C13 14.55 12.8042 15.0208 12.4125 15.4125C12.0208 15.8042 11.55 16 11 16H2ZM5 5H8V3.5C8 3.0875 7.85417 2.73438 7.5625 2.44063C7.27083 2.14687 6.9125 2 6.5 2C6.0875 2 5.73438 2.14687 5.44063 2.44063C5.14687 2.73438 5 3.0875 5 3.5V5Z"
+        fill="#6B7280"
+      />
+    </svg>
+  );
+}
 
+interface BadgesProps {
+  /** Longest-ever consecutive-day solve streak, from the activity heatmap. */
+  maxStreak: number;
+}
+
+function Badges({ maxStreak }: BadgesProps) {
   return (
     <section className="h-full flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 content-center">
-        {badges.map((badge, i) => (
-          <div
-            key={i}
-            className="flex flex-col items-center gap-1 p-4 rounded-[4px] border border-gq-accent bg-[rgba(53,53,52,0.30)]"
-          >
-            <div className="mb-2">{badge.icon}</div>
-            <span className="font-mono font-bold text-[14px] text-gq-text-primary text-center whitespace-pre-line leading-tight">
-              {badge.name}
-            </span>
-            <span className="text-[10px] text-gq-text-secondary text-center whitespace-pre-line leading-snug mt-1">
-              {badge.desc}
-            </span>
-          </div>
-        ))}
-
-        {/* Empty slots */}
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={`empty-${i}`}
-            className="flex items-center justify-center h-28 rounded-[4px] border border-dashed border-gq-accent/30 opacity-30"
-          />
-        ))}
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 content-center">
+        {STREAK_BADGES.map((badge) => {
+          const unlocked = maxStreak >= badge.thresholdDays;
+          const remaining = badge.thresholdDays - maxStreak;
+          return (
+            <div
+              key={badge.id}
+              className={
+                unlocked
+                  ? "flex flex-col items-center gap-1 p-4 rounded-[4px] border border-gq-accent bg-[rgba(53,53,52,0.30)]"
+                  : "flex flex-col items-center gap-1 p-4 rounded-[4px] border border-dashed border-gq-accent/30"
+              }
+            >
+              <div
+                className="mb-2 w-16 h-16 relative"
+                style={unlocked ? undefined : { filter: "grayscale(1)", opacity: 0.35 }}
+              >
+                {badge.svg}
+              </div>
+              <span
+                className={
+                  unlocked
+                    ? "font-mono font-bold text-[14px] text-gq-text-primary text-center leading-tight"
+                    : "font-mono font-bold text-[14px] text-gq-text-secondary text-center leading-tight"
+                }
+              >
+                {badge.name}
+              </span>
+              {unlocked ? (
+                <span className="text-[10px] text-gq-text-secondary text-center leading-snug mt-1">
+                  {badge.desc}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] text-gq-text-secondary text-center leading-snug mt-1">
+                  <LockIcon />
+                  {remaining} day{remaining === 1 ? "" : "s"} to go
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -676,6 +692,11 @@ export default function ProfilePage() {
   const branch = getBranch();
   const branchSubject = isWiredBranch(branch) ? BRANCH_SUBJECT[branch] : undefined;
 
+  const maxStreak = useMemo(
+    () => longestStreakFromHeatmap(activity.heatmap),
+    [activity.heatmap],
+  );
+
   useEffect(() => {
     let cancelled = false;
     setActivityLoading(true);
@@ -762,7 +783,7 @@ export default function ProfilePage() {
             <SolveCounter progress={activity.progress} />
           </div>
           <div className="lg:col-span-8">
-            <Badges />
+            <Badges maxStreak={maxStreak} />
           </div>
         </div>
 

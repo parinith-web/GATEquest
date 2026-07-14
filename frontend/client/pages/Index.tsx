@@ -18,6 +18,13 @@ import {
   type QuestSummary,
   type QuestHistoryEntry,
 } from "@/lib/gate-api";
+import {
+  fetchPulseFeed,
+  fetchPulseTrending,
+  timeAgo as pulseTimeAgo,
+  type PulsePost,
+  type ChannelCount,
+} from "@/lib/pulse-api";
 
 // Consecutive-day streak counted backward from the most recent day in
 // the heatmap (today) — the first day with zero attempts breaks it.
@@ -139,19 +146,10 @@ function RingStat({
   );
 }
 
-interface TrendItem {
-  category: string;
-  title: string;
-  doubts: string;
-  tag?: string;
-}
+// Trending posts + hashtags now come straight from Pulse (see
+// fetchPulseFeed/fetchPulseTrending below) instead of this hardcoded
+// list — kept only as the shape reference for the empty/loading states.
 
-const trends: TrendItem[] = [
-  { category: "TRENDING IN ALGORITHMS", title: "Graph Theory Masterclass", doubts: "42 Doubts", tag: "Hot" },
-  { category: "OPERATING SYSTEMS", title: "Paging vs Segmentation…", doubts: "128 Doubts" },
-  { category: "DATABASE MANAGEMENT", title: "Normal Forms Cheat Sheet", doubts: "56 Doubts", tag: "Active" },
-  { category: "DIGITAL LOGIC", title: "K-Map Simplification Tricks", doubts: "89 Doubts" },
-];
 
 const DotsMenu = () => (
   <svg width="5" height="17" viewBox="0 0 5 17" fill="none">
@@ -256,6 +254,36 @@ export default function Index() {
       cancelled = true;
     };
   }, [branch, branchSubject]);
+
+  // --- Community Trends (live from Pulse) --------------------------------
+  // "CSE Feed" = the hottest posts platform-wide right now (Pulse's own
+  // hot ranking — recent, high-engagement); "Global" = the most recent
+  // posts, unranked. Both pull real Pulse data — there's no separate
+  // "Twitter" integration, Pulse *is* the community feed this card
+  // surfaces.
+  const [trendingPosts, setTrendingPosts] = useState<PulsePost[]>([]);
+  const [trendingHashtags, setTrendingHashtags] = useState<ChannelCount[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTrendsLoading(true);
+    Promise.allSettled([
+      fetchPulseFeed({ sort: activeTab === "cse" ? "hot" : "new", limit: 5 }),
+      fetchPulseTrending(5),
+    ])
+      .then(([postsResult, hashtagsResult]) => {
+        if (cancelled) return;
+        setTrendingPosts(postsResult.status === "fulfilled" ? postsResult.value.posts : []);
+        setTrendingHashtags(hashtagsResult.status === "fulfilled" ? hashtagsResult.value : []);
+      })
+      .finally(() => {
+        if (!cancelled) setTrendsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   // Rank shown on the stats row: the standings from the user's most
   // recent settled quest (there's no separate global leaderboard yet).
@@ -574,35 +602,81 @@ export default function Index() {
                   </div>
                 </div>
 
-                {/* Trends list */}
+                {/* Trending hashtags — top 5 by post volume in the last
+                    48h, straight from Pulse (backend/internal/api/pulse.go
+                    TrendingHashtags), same data source the Pulse page's
+                    own "Trending Tags" panel uses. */}
+                {trendingHashtags.length > 0 && (
+                  <div className="px-[25px] pt-4 shrink-0 flex flex-wrap gap-2">
+                    {trendingHashtags.slice(0, 5).map((h) => (
+                      <Link
+                        key={h.hashtag}
+                        to={`/pulse?hashtag=${encodeURIComponent(h.hashtag)}`}
+                        className="text-[12px] px-2.5 py-1 rounded-full bg-gq-blue/15 text-gq-blue hover:bg-gq-blue/25 transition-colors"
+                      >
+                        #{h.hashtag}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Trends list — top 5 posts from Pulse, the platform's
+                    community feed (there's no separate external feed:
+                    Pulse posts are the "tweets" this card surfaces). */}
                 <div className="flex-1 overflow-y-auto p-[25px] flex flex-col gap-5">
-                  {trends.map((item, i) => (
-                    <div key={i} className="flex flex-col gap-1">
-                      <div className="flex items-start justify-between">
-                        <span className="text-gq-text-muted text-[12px] tracking-[1.2px] uppercase">{item.category}</span>
-                        <ThreeDotsMenu />
-                      </div>
-                      <p className="text-white text-[17px] font-medium leading-[26px]">{item.title}</p>
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="flex items-center gap-1">
-                          <ChatIcon />
-                          <span className="text-gq-text-muted text-[12px]">{item.doubts}</span>
-                        </div>
-                        {item.tag && (
-                          <span className="bg-gq-blue/25 text-gq-text-dim text-[12px] px-2 rounded-[2px]">
-                            {item.tag}
-                          </span>
-                        )}
-                      </div>
+                  {trendsLoading ? (
+                    <div className="py-10 text-center text-sm text-gq-text-muted">
+                      Loading trends…
                     </div>
-                  ))}
+                  ) : trendingPosts.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-gq-text-muted">
+                      Nothing on Pulse yet — be the first to post.
+                    </div>
+                  ) : (
+                    trendingPosts.map((post, i) => (
+                      <Link
+                        key={post.id}
+                        to={post.hashtags[0] ? `/pulse?hashtag=${encodeURIComponent(post.hashtags[0])}` : "/pulse"}
+                        className="flex flex-col gap-1 group"
+                      >
+                        <div className="flex items-start justify-between">
+                          <span className="text-gq-text-muted text-[12px] tracking-[1.2px] uppercase">
+                            {post.hashtags[0] ? `#${post.hashtags[0]}` : "PULSE"} · {post.author}
+                          </span>
+                          <ThreeDotsMenu />
+                        </div>
+                        <p className="text-white text-[17px] font-medium leading-[26px] group-hover:text-gq-blue transition-colors">
+                          {post.content.length > 90 ? `${post.content.slice(0, 90)}…` : post.content}
+                        </p>
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="flex items-center gap-1">
+                            <ChatIcon />
+                            <span className="text-gq-text-muted text-[12px]">
+                              {post.commentCount} Comment{post.commentCount === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          {i === 0 && (
+                            <span className="bg-gq-blue/25 text-gq-text-dim text-[12px] px-2 rounded-[2px]">
+                              Hot
+                            </span>
+                          )}
+                          <span className="text-gq-text-muted text-[11px] ml-auto">
+                            {pulseTimeAgo(post.createdAt)}
+                          </span>
+                        </div>
+                      </Link>
+                    ))
+                  )}
                 </div>
 
                 {/* Show more footer */}
                 <div className="border-t border-gq-border p-4 shrink-0">
-                  <button className="w-full text-center text-gq-text-dim text-[15px] font-medium hover:text-white transition-colors">
+                  <Link
+                    to="/pulse"
+                    className="block w-full text-center text-gq-text-dim text-[15px] font-medium hover:text-white transition-colors"
+                  >
                     Show more
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

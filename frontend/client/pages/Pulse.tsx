@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Flame,
   GitBranch,
@@ -33,7 +34,10 @@ export default function PulsePage() {
   const { user } = useAuth();
 
   const [sortMode, setSortMode] = useState<PulseSort>("hot");
-  const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [activeHashtag, setActiveHashtag] = useState<string | null>(
+    () => searchParams.get("hashtag") ?? null,
+  );
   // "bookmarks" swaps the center feed for the viewer's saved posts —
   // sort/channel filtering don't apply there, only pagination does.
   const [viewMode, setViewMode] = useState<"feed" | "bookmarks">("feed");
