@@ -138,14 +138,14 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-gq-border bg-gq-bg-card text-white h-12 px-4 outline-none focus:border-gq-blue"
+              className="w-full rounded-xl border border-gq-border bg-[#1a1a1c] text-white placeholder:text-gray-500 h-12 px-4 outline-none focus:border-gq-blue"
             />
             <input
               type="text"
               placeholder="Your name (optional)"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-gq-border bg-gq-bg-card text-white h-12 px-4 outline-none focus:border-gq-blue"
+              className="w-full rounded-xl border border-gq-border bg-[#1a1a1c] text-white placeholder:text-gray-500 h-12 px-4 outline-none focus:border-gq-blue"
             />
             <button
               onClick={handlePasskeyRegister}
