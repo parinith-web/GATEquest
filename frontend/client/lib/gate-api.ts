@@ -89,25 +89,27 @@ export async function fetchQuestion(id: number | string): Promise<Question> {
 
 // ─── Branch configuration ──────────────────────────────────────────────────
 //
-// GATEquest only has a real question bank for two branches so far: CSE and
-// Data Science & AI. Every other branch (ECE, EE, CE, ME, "Other") keeps
-// using the original static mockup pages — nothing changes for them.
+// GATEquest has a real question bank for three branches so far: CSE, Data
+// Science & AI, and Electronics. Every other branch (EE, CE, ME, "Other")
+// keeps using the original static mockup pages — nothing changes for them.
 
-export type WiredBranch = "cse" | "da";
+export type WiredBranch = "cse" | "da" | "ece";
 
 export function isWiredBranch(branch: string | null): branch is WiredBranch {
-  return branch === "cse" || branch === "da";
+  return branch === "cse" || branch === "da" || branch === "ece";
 }
 
 // Maps a branch id to the exact `subject` value stored in Neon.
 export const BRANCH_SUBJECT: Record<WiredBranch, string> = {
   cse: "Computer Science",
   da: "Data Science and Artificial Intelligence",
+  ece: "Electronics",
 };
 
 export const BRANCH_LABEL: Record<WiredBranch, string> = {
   cse: "CS",
   da: "Data Science & AI",
+  ece: "Electronics",
 };
 
 // Human-readable label for ANY branch value, wired or not. Non-wired
@@ -148,6 +150,21 @@ export const BRANCH_TOPIC_ORDER: Record<WiredBranch, string[]> = {
     "Databases",
     "Machine Learning",
     "Artificial Intelligence",
+  ],
+  // Assumption: no explicit order was given for ECE, so this follows the
+  // standard GATE ECE syllabus progression (foundations -> devices ->
+  // circuits -> signals -> systems). Reorder this array if you want a
+  // different sequence — the rest of the app just reads from it.
+  ece: [
+    "Mathematics",
+    "Electronic Devices",
+    "Analog Circuits",
+    "Digital Circuits",
+    "Networks, Signals and Systems",
+    "Control Systems",
+    "Communications",
+    "Electromagnetics",
+    "General Aptitude",
   ],
 };
 
