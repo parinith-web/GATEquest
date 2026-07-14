@@ -9,9 +9,9 @@ import { EASE_OUT } from "@/components/landing/motion/variants";
 
 export function ReadyToStart() {
   return (
-    <section className="relative w-full overflow-hidden bg-gq-bg px-6 py-24 md:py-32">
+    <section className="relative w-full overflow-hidden bg-gq-bg px-6 py-32 md:py-44 lg:py-52">
       <div
-        className="pointer-events-none absolute inset-x-0 top-1/2 -z-0 h-[520px] -translate-y-1/2"
+        className="pointer-events-none absolute inset-x-0 top-1/2 -z-0 h-[720px] -translate-y-1/2"
         style={{
           background:
             "radial-gradient(45% 70% at 50% 50%, rgba(93,162,250,0.16) 0%, rgba(93,162,250,0) 70%)",
