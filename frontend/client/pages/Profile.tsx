@@ -125,7 +125,7 @@ function UserHeader({
     getLevelProgress(xp);
 
   return (
-    <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 p-8 rounded-lg border border-gq-border bg-gq-card overflow-hidden relative">
+    <section className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 p-8 rounded-lg border border-gq-border bg-gq-card overflow-hidden relative">
       {/* Subtle corner decoration */}
       <div className="absolute top-0 left-0 w-32 h-28 opacity-10 pointer-events-none" />
 
@@ -139,7 +139,7 @@ function UserHeader({
       </button>
 
       {/* Left: avatar + identity */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-end gap-6">
         <button
           type="button"
           onClick={onPickAvatar}
@@ -175,17 +175,20 @@ function UserHeader({
           {username && (
             <span className="font-mono text-sm text-gq-text-secondary">@{username}</span>
           )}
-          <div className="flex flex-wrap items-center gap-3 mt-1">
-            <div className="px-3 py-1 bg-gq-rank-bg rounded-[2px]">
-              <span className="font-bold text-xs tracking-widest text-[#AEB9D0] uppercase">
-                {rankLoading ? "RANK: –" : rank ? `RANK: #${rank.toLocaleString()}` : "UNRANKED"}
-              </span>
-            </div>
-            <span className="font-mono text-sm text-gq-text-secondary">
-              Level {level} {title}
-            </span>
-          </div>
+          <span className="font-mono text-sm text-gq-text-secondary mt-1">
+            Level {level} {title}
+          </span>
         </div>
+      </div>
+
+      {/* Middle: Rank */}
+      <div className="flex flex-col items-center gap-1.5 sm:px-8">
+        <span className="font-bold text-xs tracking-widest text-gq-text-secondary uppercase">
+          Rank
+        </span>
+        <span className="text-gq-accent text-xl font-bold leading-none">
+          {rankLoading ? "–" : rank ? `#${rank.toLocaleString()}` : "Unranked"}
+        </span>
       </div>
 
       {/* Right: XP progress */}
