@@ -65,7 +65,7 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-start pt-[5vh] px-6"
+      className="min-h-screen flex flex-col items-center justify-start pt-[5vh] pb-[80px] px-6"
       style={{
         background:
           "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF",
@@ -78,7 +78,7 @@ export default function Login() {
             alt="GATEquest"
             className="w-[360px] h-[360px]"
           />
-          <div className="flex flex-col items-center gap-[12px] -mt-[12px]">
+          <div className="flex flex-col items-center gap-[12px] -mt-[16px]">
             <h1 className="text-white text-3xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
             <p className="text-gq-text-muted text-base text-center">
               Sign in to track your quests, streaks, and progress.
