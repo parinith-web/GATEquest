@@ -68,26 +68,26 @@ export default function DebriefPanel({
   const hasOlder = messages.length > shown.length;
 
   return (
-    <div className="border border-pulse-border rounded-lg bg-pulse-card flex flex-col h-[calc(100vh-220px)] min-h-[520px] sticky top-4 overflow-hidden">
+    <div className="rounded-[10px] border border-gq-border bg-gq-card flex flex-col h-[calc(100vh-220px)] min-h-[520px] sticky top-4 overflow-hidden">
       {/* Tabs */}
-      <div className="flex items-center gap-5 border-b border-pulse-border px-4 pt-3 shrink-0">
+      <div className="flex items-center gap-3 border-b border-gq-border px-3 pt-2.5 pb-2 shrink-0 text-[10px]">
         <button
           onClick={() => setTab("debrief")}
           className={cn(
-            "flex items-center gap-2 pb-3 text-[13px] font-sans font-semibold border-b-2 -mb-px transition-colors",
+            "flex items-center gap-1.5 pb-1.5 transition-colors",
             tab === "debrief"
-              ? "text-pulse-text border-pulse-blue"
-              : "text-pulse-dim border-transparent hover:text-pulse-muted",
+              ? "border-b-2 border-gq-blue text-gq-text"
+              : "text-gq-text-muted",
           )}
         >
-          <span className="relative flex h-2 w-2 shrink-0">
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
             {status === "open" && connected && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pulse-green opacity-75" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gq-green opacity-75" />
             )}
             <span
               className={cn(
-                "relative inline-flex rounded-full h-2 w-2",
-                status === "open" ? (connected ? "bg-pulse-green" : "bg-[#F5B942]") : "bg-pulse-dim",
+                "relative inline-flex rounded-full h-1.5 w-1.5",
+                status === "open" ? (connected ? "bg-gq-green" : "bg-[#F5B942]") : "bg-gq-text-muted",
               )}
             />
           </span>
@@ -96,10 +96,10 @@ export default function DebriefPanel({
         <button
           onClick={() => setTab("trending")}
           className={cn(
-            "pb-3 text-[13px] font-sans font-semibold border-b-2 -mb-px transition-colors",
+            "pb-1.5 transition-colors",
             tab === "trending"
-              ? "text-pulse-text border-pulse-blue"
-              : "text-pulse-dim border-transparent hover:text-pulse-muted",
+              ? "border-b-2 border-gq-blue text-gq-text"
+              : "text-gq-text-muted",
           )}
         >
           Trending Tags
@@ -110,16 +110,16 @@ export default function DebriefPanel({
         <>
           {status === "loading" && (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-[12px] font-mono text-pulse-dim">Checking room status…</p>
+              <p className="text-[12px] text-gq-text-muted">Checking room status…</p>
             </div>
           )}
 
           {status === "not-open" && (
             <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-1.5">
-              <p className="text-[13px] font-sans font-semibold text-pulse-text">
+              <p className="text-[13px] font-semibold text-gq-text">
                 Debrief room isn't open yet
               </p>
-              <p className="text-[12px] font-mono text-pulse-dim">
+              <p className="text-[12px] text-gq-text-muted">
                 Opens for your branch right after Sunday's contest closes,
                 and stays open for 12 hours.
               </p>
@@ -134,7 +134,7 @@ export default function DebriefPanel({
                 className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3.5"
               >
                 {status === "closed" && (
-                  <p className="text-[11px] font-mono uppercase tracking-[0.5px] text-pulse-dim text-center pb-1 border-b border-pulse-border/60 mb-1">
+                  <p className="text-[11px] uppercase tracking-[0.5px] text-gq-text-muted text-center pb-1 border-b border-gq-border/60 mb-1">
                     This room has closed
                   </p>
                 )}
@@ -142,14 +142,14 @@ export default function DebriefPanel({
                 {hasOlder && (
                   <button
                     onClick={() => setVisibleCount((n) => n + 20)}
-                    className="text-[11px] font-mono uppercase tracking-[0.5px] text-pulse-dim hover:text-pulse-muted self-center mb-1 transition-colors"
+                    className="text-[11px] uppercase tracking-[0.5px] text-gq-text-muted hover:text-gq-text-muted self-center mb-1 transition-colors"
                   >
                     Show more
                   </button>
                 )}
 
                 {shown.length === 0 && (
-                  <p className="text-[12px] font-mono text-pulse-dim text-center py-8">
+                  <p className="text-[12px] text-gq-text-muted text-center py-8">
                     {status === "closed"
                       ? "No messages were sent in this room."
                       : "No chats yet — say something to start the room."}
@@ -158,7 +158,7 @@ export default function DebriefPanel({
 
                 {shown.map((m) => (
                   <div key={m.id} className="flex gap-2.5">
-                    <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-pulse-border mt-0.5">
+                    <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gq-border mt-0.5">
                       <img
                         src={m.authorAvatar}
                         alt={m.author}
@@ -168,16 +168,16 @@ export default function DebriefPanel({
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span
-                          className="text-[12.5px] font-sans font-semibold"
+                          className="text-[12.5px] font-semibold"
                           style={{ color: colorForName(m.author) }}
                         >
                           {m.author}
                         </span>
-                        <span className="text-[10.5px] font-mono text-pulse-dim">
+                        <span className="text-[10.5px] text-gq-text-muted">
                           {timeHHMM(m.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[13px] font-sans text-pulse-text leading-snug break-words">
+                      <p className="text-[13px] text-gq-text leading-snug break-words">
                         {m.content}
                       </p>
                     </div>
@@ -187,7 +187,7 @@ export default function DebriefPanel({
 
               {/* Composer — only usable while the room is actually open */}
               {status === "open" && (
-                <div className="border-t border-pulse-border p-3 shrink-0">
+                <div className="border-t border-gq-border p-3 shrink-0">
                   {user ? (
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export default function DebriefPanel({
                           }}
                           maxLength={300}
                           placeholder="Message the room..."
-                          className="flex-1 bg-transparent border border-pulse-border rounded-full px-3.5 py-2 text-[13px] font-sans text-pulse-text placeholder:text-pulse-dim outline-none focus:border-pulse-blue/40"
+                          className="flex-1 bg-transparent border border-gq-border rounded-full px-3.5 py-2 text-[13px] text-gq-text placeholder:text-gq-text-muted outline-none focus:border-pulse-blue/40"
                         />
                         <button
                           onClick={handleSend}
@@ -210,8 +210,8 @@ export default function DebriefPanel({
                           className={cn(
                             "w-9 h-9 flex items-center justify-center rounded-full flex-shrink-0 transition-colors",
                             draft.trim()
-                              ? "bg-pulse-blue text-white hover:opacity-90"
-                              : "bg-pulse-border text-pulse-dim cursor-not-allowed",
+                              ? "bg-gq-blue text-white hover:opacity-90"
+                              : "bg-gq-border text-gq-text-muted cursor-not-allowed",
                           )}
                           aria-label="Send message"
                         >
@@ -219,19 +219,19 @@ export default function DebriefPanel({
                         </button>
                       </div>
                       {sendError && (
-                        <p className="text-[11px] font-mono text-red-400 px-1">
+                        <p className="text-[11px] text-red-400 px-1">
                           {sendError}
                         </p>
                       )}
                       {room && (
-                        <p className="text-[10.5px] font-mono text-pulse-dim px-1">
+                        <p className="text-[10.5px] text-gq-text-muted px-1">
                           Closes at {timeHHMM(room.closesAt)}
                           {!connected && " · reconnecting…"}
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-[11px] font-mono text-pulse-dim text-center">
+                    <p className="text-[11px] text-gq-text-muted text-center">
                       Log in to join the live debrief chat.
                     </p>
                   )}
@@ -243,7 +243,7 @@ export default function DebriefPanel({
       ) : (
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {trending.length === 0 && (
-            <p className="text-[12px] font-mono text-pulse-dim text-center py-8">
+            <p className="text-[12px] text-gq-text-muted text-center py-8">
               Nothing trending yet.
             </p>
           )}
@@ -253,18 +253,18 @@ export default function DebriefPanel({
                 key={t.hashtag}
                 onClick={() => onHashtagClick(t.hashtag)}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[13px] font-sans transition-colors text-left",
+                  "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[13px] transition-colors text-left",
                   activeHashtag === t.hashtag
-                    ? "text-pulse-blue bg-pulse-blue/5"
-                    : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-border/40",
+                    ? "text-gq-blue bg-gq-blue/5"
+                    : "text-gq-text-muted hover:text-gq-text hover:bg-gq-border/40",
                 )}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className="text-[11px] font-mono text-pulse-dim w-3">{i + 1}</span>
-                  <Hash size={12} className="text-pulse-dim shrink-0" />
+                  <span className="text-[11px] text-gq-text-muted w-3">{i + 1}</span>
+                  <Hash size={12} className="text-gq-text-muted shrink-0" />
                   {t.hashtag}
                 </span>
-                <span className="text-[11px] font-mono text-pulse-dim">{t.count}</span>
+                <span className="text-[11px] text-gq-text-muted">{t.count}</span>
               </button>
             ))}
           </div>
