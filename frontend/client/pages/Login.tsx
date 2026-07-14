@@ -65,7 +65,7 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-start pt-[9vh] px-6"
+      className="min-h-screen flex flex-col items-center justify-start pt-[5vh] px-6"
       style={{
         background:
           "radial-gradient(116.55% 97.34% at 50% 0%, #2A2A2C 0%, #131315 60%), #FFF",
@@ -76,10 +76,10 @@ export default function Login() {
           <img
             src="/brand/gatequest-mark-blue.png"
             alt="GATEquest"
-            className="w-[320px] h-[320px]"
+            className="w-[360px] h-[360px]"
           />
-          <div className="flex flex-col items-center gap-[12px] mt-[24px]">
-            <h1 className="text-white text-4xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
+          <div className="flex flex-col items-center gap-[12px] mt-[12px]">
+            <h1 className="text-white text-3xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
             <p className="text-gq-text-muted text-base text-center">
               Sign in to track your quests, streaks, and progress.
             </p>
@@ -106,7 +106,7 @@ export default function Login() {
           Continue with Google
         </button>
 
-        <div className="flex items-center gap-3 my-[29px]">
+        <div className="flex items-center gap-3 my-[16px]">
           <div className="h-px flex-1 bg-white/10" />
           <span className="text-gq-text-muted text-xs">OR</span>
           <div className="h-px flex-1 bg-white/10" />
