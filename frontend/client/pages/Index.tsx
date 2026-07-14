@@ -176,8 +176,6 @@ const ChatIcon = () => (
 );
 
 export default function Index() {
-  const [activeTab, setActiveTab] = useState<"cse" | "global">("cse");
-
   const [activity, setActivity] = useState<{
     heatmap: HeatmapDay[];
     history: HistoryItem[];
@@ -256,11 +254,11 @@ export default function Index() {
   }, [branch, branchSubject]);
 
   // --- Community Trends (live from Pulse) --------------------------------
-  // "CSE Feed" = the hottest posts platform-wide right now (Pulse's own
-  // hot ranking — recent, high-engagement); "Global" = the most recent
-  // posts, unranked. Both pull real Pulse data — there's no separate
-  // "Twitter" integration, Pulse *is* the community feed this card
-  // surfaces.
+  // Feed = the hottest posts platform-wide right now (Pulse's own hot
+  // ranking — recent, high-engagement), top 5. Trending = the top 5
+  // hashtags by post volume, straight from Pulse. Both pull real Pulse
+  // data — there's no separate "Twitter" integration, Pulse *is* the
+  // community feed this card surfaces.
   const [trendingPosts, setTrendingPosts] = useState<PulsePost[]>([]);
   const [trendingHashtags, setTrendingHashtags] = useState<ChannelCount[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(true);
@@ -269,7 +267,7 @@ export default function Index() {
     let cancelled = false;
     setTrendsLoading(true);
     Promise.allSettled([
-      fetchPulseFeed({ sort: activeTab === "cse" ? "hot" : "new", limit: 5 }),
+      fetchPulseFeed({ sort: "hot", limit: 5 }),
       fetchPulseTrending(5),
     ])
       .then(([postsResult, hashtagsResult]) => {
@@ -283,7 +281,7 @@ export default function Index() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab]);
+  }, []);
 
   // Rank shown on the stats row: the standings from the user's most
   // recent settled quest (there's no separate global leaderboard yet).
@@ -573,100 +571,112 @@ export default function Index() {
             <div className="xl:col-span-1">
               <div className="bg-gq-card border border-gq-border rounded-[17px] overflow-hidden flex flex-col h-full">
                 {/* Header */}
-                <div className="p-[25px] pb-0 shrink-0">
-                  <h2 className="text-white text-[19px] font-semibold mb-4">Community Trends</h2>
-                  {/* Tabs */}
-                  <div className="flex border-b border-gq-border">
-                    <button
-                      onClick={() => setActiveTab("cse")}
-                      className={[
-                        "flex-1 pb-2 text-[15px] font-semibold text-center transition-colors",
-                        activeTab === "cse"
-                          ? "text-gq-text-dim border-b-2 border-gq-text-dim -mb-px"
-                          : "text-gq-text-muted",
-                      ].join(" ")}
-                    >
-                      CSE Feed
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("global")}
-                      className={[
-                        "flex-1 pb-2 text-[15px] font-medium text-center transition-colors",
-                        activeTab === "global"
-                          ? "text-gq-text-dim border-b-2 border-gq-text-dim -mb-px"
-                          : "text-gq-text-muted",
-                      ].join(" ")}
-                    >
-                      Global
-                    </button>
-                  </div>
+                <div className="p-[25px] pb-4 shrink-0">
+                  <h2 className="text-white text-[19px] font-semibold">Community Trends</h2>
                 </div>
 
-                {/* Trending hashtags — top 5 by post volume in the last
-                    48h, straight from Pulse (backend/internal/api/pulse.go
-                    TrendingHashtags), same data source the Pulse page's
-                    own "Trending Tags" panel uses. */}
-                {trendingHashtags.length > 0 && (
-                  <div className="px-[25px] pt-4 shrink-0 flex flex-wrap gap-2">
-                    {trendingHashtags.slice(0, 5).map((h) => (
-                      <Link
-                        key={h.hashtag}
-                        to={`/pulse?hashtag=${encodeURIComponent(h.hashtag)}`}
-                        className="text-[12px] px-2.5 py-1 rounded-full bg-gq-blue/15 text-gq-blue hover:bg-gq-blue/25 transition-colors"
-                      >
-                        #{h.hashtag}
-                      </Link>
-                    ))}
+                {/* Two columns: Feed (top 5 hot posts) on the left,
+                    Trending (top 5 hashtags by post volume) on the
+                    right — both pulled live from Pulse. */}
+                <div className="flex-1 grid grid-cols-2 divide-x divide-gq-border overflow-hidden min-h-0">
+                  {/* Feed column */}
+                  <div className="flex flex-col min-h-0">
+                    <div className="px-[18px] shrink-0">
+                      <h3 className="inline-block text-gq-text-dim text-[15px] font-semibold border-b-2 border-gq-text-dim pb-2">
+                        Feed
+                      </h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-[18px] pt-3 pb-4 flex flex-col gap-4">
+                      {trendsLoading ? (
+                        <div className="py-10 text-center text-xs text-gq-text-muted">
+                          Loading…
+                        </div>
+                      ) : trendingPosts.length === 0 ? (
+                        <div className="py-10 text-center text-xs text-gq-text-muted">
+                          Nothing on Pulse yet — be the first to post.
+                        </div>
+                      ) : (
+                        trendingPosts.map((post, i) => (
+                          <Link
+                            key={post.id}
+                            to={
+                              post.hashtags[0]
+                                ? `/pulse?hashtag=${encodeURIComponent(post.hashtags[0])}`
+                                : "/pulse"
+                            }
+                            className="flex flex-col gap-1 group"
+                          >
+                            <span className="text-gq-text-muted text-[11px] tracking-[1.2px] uppercase truncate">
+                              {post.hashtags[0] ? `#${post.hashtags[0]}` : "PULSE"} · {post.author}
+                            </span>
+                            <p className="text-white text-[14px] font-medium leading-[20px] group-hover:text-gq-blue transition-colors">
+                              {post.content.length > 60 ? `${post.content.slice(0, 60)}…` : post.content}
+                            </p>
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <div className="flex items-center gap-1">
+                                <ChatIcon />
+                                <span className="text-gq-text-muted text-[11px]">
+                                  {post.commentCount}
+                                </span>
+                              </div>
+                              {i === 0 && (
+                                <span className="bg-gq-blue/25 text-gq-text-dim text-[10px] px-1.5 rounded-[2px]">
+                                  Hot
+                                </span>
+                              )}
+                              <span className="text-gq-text-muted text-[10px] ml-auto">
+                                {pulseTimeAgo(post.createdAt)}
+                              </span>
+                            </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {/* Trends list — top 5 posts from Pulse, the platform's
-                    community feed (there's no separate external feed:
-                    Pulse posts are the "tweets" this card surfaces). */}
-                <div className="flex-1 overflow-y-auto p-[25px] flex flex-col gap-5">
-                  {trendsLoading ? (
-                    <div className="py-10 text-center text-sm text-gq-text-muted">
-                      Loading trends…
+                  {/* Trending column — top 5 hashtags by post volume in
+                      the last 48h, straight from Pulse
+                      (backend/internal/api/pulse.go TrendingHashtags),
+                      same data source the Pulse page's own "Trending
+                      Tags" panel uses. */}
+                  <div className="flex flex-col min-h-0">
+                    <div className="px-[18px] shrink-0">
+                      <h3 className="inline-block text-gq-text-dim text-[15px] font-semibold border-b-2 border-gq-text-dim pb-2">
+                        Trending
+                      </h3>
                     </div>
-                  ) : trendingPosts.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-gq-text-muted">
-                      Nothing on Pulse yet — be the first to post.
+                    <div className="flex-1 overflow-y-auto px-[18px] pt-3 pb-4 flex flex-col gap-3">
+                      {trendsLoading ? (
+                        <div className="py-10 text-center text-xs text-gq-text-muted">
+                          Loading…
+                        </div>
+                      ) : trendingHashtags.length === 0 ? (
+                        <div className="py-10 text-center text-xs text-gq-text-muted">
+                          No trending tags yet.
+                        </div>
+                      ) : (
+                        trendingHashtags.slice(0, 5).map((h, i) => (
+                          <Link
+                            key={h.hashtag}
+                            to={`/pulse?hashtag=${encodeURIComponent(h.hashtag)}`}
+                            className="flex items-center justify-between gap-2 group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-gq-text-muted text-[12px] font-mono w-3 shrink-0">
+                                {i + 1}
+                              </span>
+                              <span className="text-white text-[14px] font-medium truncate group-hover:text-gq-blue transition-colors">
+                                #{h.hashtag}
+                              </span>
+                            </div>
+                            <span className="text-gq-text-muted text-[11px] shrink-0">
+                              {h.count} post{h.count === 1 ? "" : "s"}
+                            </span>
+                          </Link>
+                        ))
+                      )}
                     </div>
-                  ) : (
-                    trendingPosts.map((post, i) => (
-                      <Link
-                        key={post.id}
-                        to={post.hashtags[0] ? `/pulse?hashtag=${encodeURIComponent(post.hashtags[0])}` : "/pulse"}
-                        className="flex flex-col gap-1 group"
-                      >
-                        <div className="flex items-start justify-between">
-                          <span className="text-gq-text-muted text-[12px] tracking-[1.2px] uppercase">
-                            {post.hashtags[0] ? `#${post.hashtags[0]}` : "PULSE"} · {post.author}
-                          </span>
-                          <ThreeDotsMenu />
-                        </div>
-                        <p className="text-white text-[17px] font-medium leading-[26px] group-hover:text-gq-blue transition-colors">
-                          {post.content.length > 90 ? `${post.content.slice(0, 90)}…` : post.content}
-                        </p>
-                        <div className="flex items-center gap-3 pt-1">
-                          <div className="flex items-center gap-1">
-                            <ChatIcon />
-                            <span className="text-gq-text-muted text-[12px]">
-                              {post.commentCount} Comment{post.commentCount === 1 ? "" : "s"}
-                            </span>
-                          </div>
-                          {i === 0 && (
-                            <span className="bg-gq-blue/25 text-gq-text-dim text-[12px] px-2 rounded-[2px]">
-                              Hot
-                            </span>
-                          )}
-                          <span className="text-gq-text-muted text-[11px] ml-auto">
-                            {pulseTimeAgo(post.createdAt)}
-                          </span>
-                        </div>
-                      </Link>
-                    ))
-                  )}
+                  </div>
                 </div>
 
                 {/* Show more footer */}

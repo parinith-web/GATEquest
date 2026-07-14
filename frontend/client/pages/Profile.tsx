@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -11,7 +11,13 @@ import {
 } from "@/lib/profile-api";
 import { fileToAvatarDataURL } from "@/lib/image";
 import { getLevelProgress } from "@/lib/leveling";
-import { BRANCH_SUBJECT, getBranch, isWiredBranch } from "@/lib/gate-api";
+import {
+  BRANCH_SUBJECT,
+  getBranch,
+  isWiredBranch,
+  fetchQuestRatingHistory,
+  type QuestHistoryEntry,
+} from "@/lib/gate-api";
 import { STREAK_BADGES } from "@/lib/streak-badges";
 
 // ── Heatmap helpers ──────────────────────────────────────────────────────────
@@ -96,9 +102,25 @@ interface UserHeaderProps {
   uploading: boolean;
   onPickAvatar: () => void;
   xp: number;
+  /** Rank from the user's most recent settled quest — there's no
+   * separate global leaderboard yet. `null` while still loading, and
+   * `undefined` once loaded if the user has never completed a quest. */
+  rank: number | null | undefined;
+  rankLoading: boolean;
+  onLogout: () => void;
 }
 
-function UserHeader({ name, username, avatarUrl, uploading, onPickAvatar, xp }: UserHeaderProps) {
+function UserHeader({
+  name,
+  username,
+  avatarUrl,
+  uploading,
+  onPickAvatar,
+  xp,
+  rank,
+  rankLoading,
+  onLogout,
+}: UserHeaderProps) {
   const { level, title, xpIntoLevel, xpForNextLevel, percentToNextLevel } =
     getLevelProgress(xp);
 
@@ -106,6 +128,15 @@ function UserHeader({ name, username, avatarUrl, uploading, onPickAvatar, xp }: 
     <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 p-8 rounded-lg border border-gq-border bg-gq-card overflow-hidden relative">
       {/* Subtle corner decoration */}
       <div className="absolute top-0 left-0 w-32 h-28 opacity-10 pointer-events-none" />
+
+      {/* Log out */}
+      <button
+        type="button"
+        onClick={onLogout}
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 px-3 py-1.5 rounded-[4px] border border-gq-border text-gq-text-secondary text-xs font-medium tracking-wide hover:text-white hover:border-gq-accent/40 transition-colors"
+      >
+        Log out
+      </button>
 
       {/* Left: avatar + identity */}
       <div className="flex items-center gap-6">
@@ -147,7 +178,7 @@ function UserHeader({ name, username, avatarUrl, uploading, onPickAvatar, xp }: 
           <div className="flex flex-wrap items-center gap-3 mt-1">
             <div className="px-3 py-1 bg-gq-rank-bg rounded-[2px]">
               <span className="font-bold text-xs tracking-widest text-[#AEB9D0] uppercase">
-                RANK: #1,240
+                {rankLoading ? "RANK: –" : rank ? `RANK: #${rank.toLocaleString()}` : "UNRANKED"}
               </span>
             </div>
             <span className="font-mono text-sm text-gq-text-secondary">
@@ -528,12 +559,13 @@ function SolveCounter({ progress }: SolveCounterProps) {
   );
 }
 
-function LockIcon() {
+function LockIcon({ size = 14 }: { size?: number }) {
+  const height = Math.round((size * 16) / 14);
   return (
-    <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+    <svg width={size} height={height} viewBox="0 0 14 16" fill="none">
       <path
         d="M2 16C1.45 16 0.979167 15.8042 0.5875 15.4125C0.195833 15.0208 0 14.55 0 14V7C0 6.45 0.195833 5.97917 0.5875 5.5875C0.979167 5.19583 1.45 5 2 5H3V3.5C3 2.53333 3.34167 1.70833 4.025 1.025C4.70833 0.341667 5.53333 0 6.5 0C7.46667 0 8.29167 0.341667 8.975 1.025C9.65833 1.70833 10 2.53333 10 3.5V5H11C11.55 5 12.0208 5.19583 12.4125 5.5875C12.8042 5.97917 13 6.45 13 7V14C13 14.55 12.8042 15.0208 12.4125 15.4125C12.0208 15.8042 11.55 16 11 16H2ZM5 5H8V3.5C8 3.0875 7.85417 2.73438 7.5625 2.44063C7.27083 2.14687 6.9125 2 6.5 2C6.0875 2 5.73438 2.14687 5.44063 2.44063C5.14687 2.73438 5 3.0875 5 3.5V5Z"
-        fill="#6B7280"
+        fill="#E5E7EB"
       />
     </svg>
   );
@@ -560,11 +592,17 @@ function Badges({ maxStreak }: BadgesProps) {
                   : "flex flex-col items-center gap-1 p-4 rounded-[4px] border border-dashed border-gq-accent/30"
               }
             >
-              <div
-                className="mb-2 w-16 h-16 relative"
-                style={unlocked ? undefined : { filter: "grayscale(1)", opacity: 0.35 }}
-              >
-                {badge.svg}
+              <div className="mb-2 w-16 h-16 relative">
+                <div style={unlocked ? undefined : { filter: "blur(2.5px)", opacity: 0.55 }}>
+                  {badge.svg}
+                </div>
+                {!unlocked && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-black/55 backdrop-blur-[1px]">
+                      <LockIcon size={13} />
+                    </div>
+                  </div>
+                )}
               </div>
               <span
                 className={
@@ -580,8 +618,7 @@ function Badges({ maxStreak }: BadgesProps) {
                   {badge.desc}
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-[10px] text-gq-text-secondary text-center leading-snug mt-1">
-                  <LockIcon />
+                <span className="text-[10px] text-gq-text-secondary text-center leading-snug mt-1">
                   {remaining} day{remaining === 1 ? "" : "s"} to go
                 </span>
               )}
@@ -658,8 +695,14 @@ function History({ history }: HistoryProps) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, logout } = useAuth();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
 
   const [activity, setActivity] = useState<{
     heatmap: HeatmapDay[];
@@ -685,6 +728,12 @@ export default function ProfilePage() {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  // Rank shown in the header: the standings from the user's most recent
+  // settled quest (there's no separate global leaderboard yet). Someone
+  // who has never completed a quest has no rank at all — "Unranked".
+  const [questHistory, setQuestHistory] = useState<QuestHistoryEntry[]>([]);
+  const [rankLoading, setRankLoading] = useState(true);
 
   // XP is scoped to whichever branch the user picked in onboarding (only
   // CSE and Data Science & AI have a real question bank so far) — same
@@ -714,6 +763,26 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [branchSubject]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRankLoading(true);
+    fetchQuestRatingHistory()
+      .then((data) => {
+        if (!cancelled) setQuestHistory(data);
+      })
+      .catch(() => {
+        if (!cancelled) setQuestHistory([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRankLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rank = questHistory[0]?.result.rank;
 
   const handleAvatarFile = async (file: File) => {
     setAvatarError(null);
@@ -759,6 +828,9 @@ export default function ProfilePage() {
           uploading={uploading}
           onPickAvatar={() => fileInputRef.current?.click()}
           xp={activity.xp}
+          rank={rank}
+          rankLoading={rankLoading}
+          onLogout={handleLogout}
         />
 
         {/* Row 1: Activity Map (full width) */}
