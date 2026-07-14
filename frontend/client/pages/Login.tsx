@@ -72,13 +72,13 @@ export default function Login() {
       }}
     >
       <div className="w-full max-w-[460px]">
-        <div className="flex flex-col items-center mb-[100px]">
+        <div className="flex flex-col items-center mb-[64px]">
           <img
             src="/brand/gatequest-mark-blue.png"
             alt="GATEquest"
             className="w-[320px] h-[320px]"
           />
-          <div className="flex flex-col items-center gap-[12px] mt-[40px]">
+          <div className="flex flex-col items-center gap-[12px] mt-[24px]">
             <h1 className="text-white text-4xl font-bold tracking-tight whitespace-nowrap">Welcome to GATEquest</h1>
             <p className="text-gq-text-muted text-base text-center">
               Sign in to track your quests, streaks, and progress.
