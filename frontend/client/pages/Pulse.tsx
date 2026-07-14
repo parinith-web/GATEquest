@@ -359,7 +359,7 @@ export default function PulsePage() {
                       <Film size={13} />
                     </button>
                     <span className="text-[12px] text-gq-text-muted truncate">
-                      {composeText.length}/2000 · use #hashtags to tag a channel
+                      {composeText.length}/2000
                     </span>
                   </div>
                   <button

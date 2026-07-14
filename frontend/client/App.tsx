@@ -21,7 +21,7 @@ import Problems from "./pages/Problems";
 import Pulse from "./pages/Pulse";
 import Question from "./pages/Question";
 import Profile from "./pages/Profile";
-import Placeholder from "./pages/Placeholder";
+import Support from "./pages/Support";
 import Roadmaps from "./pages/Roadmaps";
 import NotFound from "./pages/NotFound";
 
@@ -95,8 +95,7 @@ const AppRoutes = () => (
     <Route path="/question/:id" element={<ProtectedRoute><Question /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/roadmaps" element={<ProtectedRoute><Roadmaps /></ProtectedRoute>} />
-    <Route path="/settings" element={<ProtectedRoute><Placeholder /></ProtectedRoute>} />
-    <Route path="/support" element={<ProtectedRoute><Placeholder /></ProtectedRoute>} />
+    <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
     <Route path="*" element={<NotFound />} />
   </Routes>
