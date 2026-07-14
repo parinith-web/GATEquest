@@ -34,14 +34,20 @@ const FAQS: FaqItem[] = [
   },
 ];
 
-function FaqRow({ item }: { item: FaqItem }) {
-  const [open, setOpen] = useState(false);
-
+function FaqRow({
+  item,
+  open,
+  onToggle,
+}: {
+  item: FaqItem;
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="border-b border-gq-border last:border-b-0">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className="w-full flex items-center justify-between gap-4 py-4 text-left"
         aria-expanded={open}
       >
@@ -73,6 +79,7 @@ function FaqRow({ item }: { item: FaqItem }) {
 }
 
 export default function Support() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -103,8 +110,13 @@ export default function Support() {
               Frequently asked questions
             </h2>
             <div className="mt-2">
-              {FAQS.map((item) => (
-                <FaqRow key={item.question} item={item} />
+              {FAQS.map((item, i) => (
+                <FaqRow
+                  key={item.question}
+                  item={item}
+                  open={openIndex === i}
+                  onToggle={() => setOpenIndex((v) => (v === i ? null : i))}
+                />
               ))}
             </div>
           </div>

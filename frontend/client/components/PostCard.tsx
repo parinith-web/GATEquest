@@ -219,66 +219,68 @@ export default function PostCard({
   const primaryTag = hashtags[0] ? `#${hashtags[0]}` : "post";
 
   return (
-    <article className="rounded-[10px] border border-gq-border bg-gq-card p-3 flex flex-col gap-2">
-      {/* Header: avatar, name, time, tag badge */}
-      <div className="flex items-center gap-2">
-        <img
-          src={authorAvatar}
-          alt={author}
-          className="h-6 w-6 shrink-0 rounded-full bg-black object-cover"
-        />
-        <span className="text-[13px] font-medium text-gq-text">{author}</span>
-        <span className="text-[11.5px] text-gq-text-muted">· {timeAgo(createdAt)}</span>
+    <article className="rounded-[10px] border border-gq-border bg-gq-card p-3 flex gap-2.5">
+      <img
+        src={authorAvatar}
+        alt={author}
+        className="h-6 w-6 shrink-0 rounded-full bg-black object-cover mt-0.5"
+      />
 
-        <div className="ml-auto flex items-center gap-1.5">
-          {hashtags.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap justify-end">
-              {hashtags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => onHashtagClick?.(tag)}
-                  className="rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue hover:bg-gq-blue/25 transition-colors"
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
-          )}
-          {isOwner && onDelete && (
-            <button
-              onClick={() => onDelete(id)}
-              title="Delete post"
-              className="text-gq-text-muted hover:text-pulse-red transition-colors"
-            >
-              <Trash2 size={12} />
-            </button>
-          )}
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        {/* Header: name, time, tag badge */}
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium text-gq-text">{author}</span>
+          <span className="text-[11.5px] text-gq-text-muted">· {timeAgo(createdAt)}</span>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {hashtags.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {hashtags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => onHashtagClick?.(tag)}
+                    className="rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue hover:bg-gq-blue/25 transition-colors"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isOwner && onDelete && (
+              <button
+                onClick={() => onDelete(id)}
+                title="Delete post"
+                className="text-gq-text-muted hover:text-pulse-red transition-colors"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Body */}
-      <p className="text-[14px] leading-[1.55] text-gq-text-secondary whitespace-pre-wrap">
-        {content}
-      </p>
+        {/* Body */}
+        <p className="text-[14px] leading-[1.55] text-gq-text-secondary whitespace-pre-wrap">
+          {content}
+        </p>
 
-      {/* Attached media */}
-      {mediaUrl && mediaType === "image" && (
-        <img
-          src={mediaUrl}
-          alt=""
-          className="w-full max-h-[420px] object-cover rounded-[8px] border border-gq-border"
-        />
-      )}
-      {mediaUrl && mediaType === "video" && (
-        <video
-          src={mediaUrl}
-          controls
-          className="w-full max-h-[420px] rounded-[8px] border border-gq-border"
-        />
-      )}
+        {/* Attached media */}
+        {mediaUrl && mediaType === "image" && (
+          <img
+            src={mediaUrl}
+            alt=""
+            className="w-full max-h-[420px] object-cover rounded-[8px] border border-gq-border"
+          />
+        )}
+        {mediaUrl && mediaType === "video" && (
+          <video
+            src={mediaUrl}
+            controls
+            className="w-full max-h-[420px] rounded-[8px] border border-gq-border"
+          />
+        )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-2 text-[11.5px] text-gq-text-muted flex-wrap">
+        <div className="flex items-center gap-4 pt-1 text-[11.5px] text-gq-text-muted flex-wrap">
           {/* Like (upvote) */}
           <button
             onClick={() => handleVote(1)}
@@ -438,6 +440,7 @@ export default function PostCard({
             )}
           </div>
         )}
+      </div>
     </article>
   );
 }

@@ -285,24 +285,25 @@ function ActivityMap({ heatmap, totalContributions }: ActivityMapProps) {
 
   return (
     <section className="flex flex-col gap-6 p-6 rounded-lg border border-gq-border bg-gq-card">
-      {/* Active days / max streak */}
-      <div className="flex flex-wrap items-center justify-end gap-4 font-mono text-xs text-gq-text-secondary">
-        <span>
-          ACTIVE DAYS: <span className="text-gq-accent font-bold">{activeDays}</span>
+      {/* Contribution count + active days / max streak, same row */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <span className="text-sm text-gq-text-secondary">
+          <span className="text-2xl font-bold text-gq-accent align-middle mr-1.5">
+            {totalContributions.toLocaleString()}
+          </span>
+          submission{totalContributions === 1 ? "" : "s"} in the last year
         </span>
-        <span className="text-gq-border">|</span>
-        <span>
-          MAX STREAK: <span className="text-gq-accent font-bold">{maxStreak}</span>
-        </span>
-      </div>
 
-      {/* Contribution count, LeetCode-style */}
-      <span className="text-sm text-gq-text-secondary">
-        <span className="text-2xl font-bold text-gq-accent align-middle mr-1.5">
-          {totalContributions.toLocaleString()}
-        </span>
-        submission{totalContributions === 1 ? "" : "s"} in the last year
-      </span>
+        <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-gq-text-secondary">
+          <span>
+            ACTIVE DAYS: <span className="text-gq-accent font-bold">{activeDays}</span>
+          </span>
+          <span className="text-gq-border">|</span>
+          <span>
+            MAX STREAK: <span className="text-gq-accent font-bold">{maxStreak}</span>
+          </span>
+        </div>
+      </div>
 
       {/* Heatmap grid, broken into one flex item per calendar month so it
           visibly separates by month while still filling the full card
