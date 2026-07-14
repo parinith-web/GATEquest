@@ -49,7 +49,7 @@ export function PulseHighlight() {
             edge, so the composition reads as one atmospheric frame
             rather than a flat grid of boxes. */}
         <div
-          className="relative flex flex-col items-center justify-center gap-2 overflow-x-auto py-6 no-scrollbar md:overflow-visible md:translate-x-6 md:gap-3 md:py-10 lg:translate-x-12"
+          className="relative flex flex-col items-center justify-center gap-2 overflow-x-auto py-6 no-scrollbar md:overflow-visible md:-translate-x-6 md:gap-3 md:py-10 lg:-translate-x-12"
           style={{
             WebkitMaskImage:
               "radial-gradient(circle, black 35%, transparent 92%)",

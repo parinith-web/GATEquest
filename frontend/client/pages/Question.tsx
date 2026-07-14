@@ -165,7 +165,12 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
                 <svg width="5" height="8" viewBox="0 0 5 8" fill="none">
                   <path d="M2.68333 3.5L0 0.816667L0.816667 0L4.31667 3.5L0.816667 7L0 6.18333L2.68333 3.5Z" fill="#8C909F"/>
                 </svg>
-                <span className="font-mono text-[12.75px] text-[#4d8eff] uppercase">{question.Topic}</span>
+                <Link
+                  to={`/problems?topic=${encodeURIComponent(question.Topic)}`}
+                  className="font-mono text-[12.75px] text-[#4d8eff] uppercase hover:underline"
+                >
+                  {question.Topic}
+                </Link>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {[question.ExamYear ? `GATE ${question.ExamYear}` : null, question.Type.toUpperCase() + " TYPE"]
