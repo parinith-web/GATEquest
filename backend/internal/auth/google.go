@@ -136,7 +136,16 @@ func (m *Manager) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.IssueSession(w, user.ID)
-	http.Redirect(w, r, m.Cfg.FrontendURL+"/", http.StatusFound)
+	// Redirect to a dedicated callback route rather than straight to "/".
+	// "/" (HomeRoute) treats "no confirmed user yet" as "render the public
+	// Landing page immediately, don't wait on the backend" — the right
+	// call for a normal visit, wrong call here: this request is coming
+	// back from a *successful* sign-in, so racing the frontend's
+	// /api/auth/me check against that render just produces a Landing-
+	// then-dashboard flash. /login/callback (frontend/client/pages/
+	// AuthCallback.tsx) waits for that check to resolve before handing
+	// off to "/", so HomeRoute never has to guess.
+	http.Redirect(w, r, m.Cfg.FrontendURL+"/login/callback", http.StatusFound)
 }
 
 func (m *Manager) exchangeGoogleCode(code, verifier string) (*googleTokenResponse, error) {

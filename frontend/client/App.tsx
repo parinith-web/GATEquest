@@ -8,16 +8,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { Skeleton } from "@/components/ui/skeleton";
+import { RouteLoadingShell } from "@/components/RouteLoadingShell";
 // Login and Landing stay eager imports: they're what an unauthenticated
 // first-time visitor needs immediately (Phase 1 made sure Landing paints
 // without waiting on the backend at all — no point undoing that by
-// making its own code lazy). Everything else below is only needed once
-// someone is signed in or navigates deeper, so it's split into its own
-// chunk and fetched on demand instead of bloating the initial bundle
-// every visitor has to download before seeing anything.
+// making its own code lazy). AuthCallback is eager for the same reason
+// from the other direction: it's the very next thing rendered after a
+// Google OAuth redirect lands back on the app, so there's no lazy-chunk
+// fetch to hide behind a Suspense fallback for it either. Everything
+// else below is only needed once someone is signed in or navigates
+// deeper, so it's split into its own chunk and fetched on demand instead
+// of bloating the initial bundle every visitor has to download before
+// seeing anything.
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
+import AuthCallback from "./pages/AuthCallback";
 
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -36,35 +41,6 @@ const Roadmaps = lazy(() => import("./pages/Roadmaps"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
-
-// Subphase 1b: a bare "Loading…" screen on protected routes looks
-// indistinguishable from the app being broken, especially during a
-// Render/Neon cold start where this can sit on screen for tens of
-// seconds. This renders a lightweight app-shell skeleton instead — a
-// header bar plus a few content blocks in the same layout shape as the
-// real pages — so a slow auth check reads as "still loading" rather than
-// "did something break". It intentionally does not fetch anything or
-// depend on which page it's standing in for; it's a generic shape, not
-// a per-page skeleton.
-const RouteLoadingShell = () => (
-  <div className="min-h-screen bg-gq-bg-main">
-    <div className="h-16 border-b border-gq-border flex items-center px-6 gap-4">
-      <Skeleton className="h-8 w-8 rounded-full" />
-      <Skeleton className="h-4 w-32" />
-      <div className="flex-1" />
-      <Skeleton className="h-8 w-8 rounded-full" />
-    </div>
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-      <Skeleton className="h-8 w-64" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-      </div>
-      <Skeleton className="h-48 rounded-xl" />
-    </div>
-  </div>
-);
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -132,6 +108,7 @@ const HomeRoute = () => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<Login />} />
+    <Route path="/login/callback" element={<AuthCallback />} />
     <Route path="/" element={<HomeRoute />} />
     <Route path="/privacy" element={<Privacy />} />
     <Route path="/terms" element={<Terms />} />
