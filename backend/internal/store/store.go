@@ -110,8 +110,24 @@ type Store struct {
 // verifies it with a ping. Callers should call Close when done (e.g. on
 // shutdown); a canceled ctx or unreachable database returns an error
 // instead of panicking so main() can fail fast with a clear message.
+//
+// Pool sizing is tuned for a free-tier Neon compute that periodically
+// auto-suspends: MinConns keeps a small floor of connections open once
+// the DB is awake, so a burst of requests right after a cold start
+// doesn't force a fresh TCP+TLS handshake per request on top of the
+// compute resume itself. MaxConnIdleTime is set slightly under Render's
+// own idle-sleep window so idle pool connections get recycled on our
+// terms rather than getting cut from underneath us.
 func New(ctx context.Context, dsn string) (*Store, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	poolCfg.MinConns = 2
+	poolCfg.MaxConns = 10
+	poolCfg.MaxConnIdleTime = 4 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +140,16 @@ func New(ctx context.Context, dsn string) (*Store, error) {
 
 func (s *Store) Close() {
 	s.db.Close()
+}
+
+// Ping verifies the database connection is alive and responsive. Used by
+// the /healthz route so external uptime pingers (and the process itself)
+// can confirm the DB — not just the Go process — is actually reachable.
+// On Neon's free tier this also serves to nudge an auto-suspended compute
+// back awake as part of a keep-warm ping, rather than leaving that to the
+// first real user request.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.Ping(ctx)
 }
 
 // --- Users -----------------------------------------------------------

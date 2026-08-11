@@ -7,6 +7,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -48,8 +49,20 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
+// cacheable sets a public Cache-Control header for the given number of
+// seconds. Only use this on routes that are (a) not behind RequireAuth
+// and (b) not personalized — the question bank read endpoints below
+// qualify since the underlying data barely changes and every visitor
+// sees the same thing. This lets the browser skip the round trip
+// entirely on repeat visits within the window, which matters most right
+// after a cold start when that round trip is slowest.
+func cacheable(w http.ResponseWriter, seconds int) {
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", seconds))
+}
+
 // GET /api/subjects
 func (h *Handlers) Subjects(w http.ResponseWriter, r *http.Request) {
+	cacheable(w, 300)
 	subjects, err := h.Store.ListSubjects(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load subjects")
@@ -65,6 +78,7 @@ func (h *Handlers) Topics(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "subject query param is required")
 		return
 	}
+	cacheable(w, 300)
 	topics, err := h.Store.ListTopics(r.Context(), subject)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load topics")
@@ -92,6 +106,7 @@ type questionListItem struct {
 
 // GET /api/questions?subject=...&topic=...&type=mcq&difficulty=Easy&limit=20&offset=0
 func (h *Handlers) ListQuestions(w http.ResponseWriter, r *http.Request) {
+	cacheable(w, 60)
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
@@ -138,6 +153,7 @@ func (h *Handlers) GetQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cacheable(w, 300)
 	question, err := h.Store.GetQuestion(r.Context(), id)
 	if err != nil {
 		if err == store.ErrNotFound {

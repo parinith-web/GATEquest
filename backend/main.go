@@ -128,7 +128,31 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// Gzip/deflate-compress responses (level 5 — good ratio/CPU tradeoff
+	// for JSON payloads without burning much time on a free-tier CPU).
+	// Chi's Compress middleware negotiates based on Accept-Encoding and
+	// is a no-op for already-compressed or tiny responses, so it's safe
+	// to apply globally rather than per-route.
+	r.Use(middleware.Compress(5))
 	r.Use(corsMiddleware(cfg.FrontendURL))
+
+	// Health check for external uptime pingers (UptimeRobot, cron-job.org,
+	// a scheduled GitHub Action, etc). Deliberately unauthenticated and
+	// outside any route group. Pings the DB too (not just the process)
+	// so that on Render/Neon free tier, a scheduled hit every 5-10 min
+	// keeps both the backend process and the database compute warm and
+	// shrinks the cold-start window real users would otherwise hit.
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		if err := st.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("db unreachable"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 
 	r.Route("/api/auth", func(r chi.Router) {
 		// Google OAuth
