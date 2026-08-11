@@ -8,8 +8,11 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://rsms.me/" />
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <!-- Fonts are self-hosted (see client/global.css @font-face rules +
+         public/fonts) instead of pulled from rsms.me/Google Fonts, so the
+         very first paint doesn't wait on a third-party round trip — this
+         matters most right when it used to hurt most: a cold-started
+         backend on a slow connection (see plan.md Phase 5). -->
   </head>
 
   <body>

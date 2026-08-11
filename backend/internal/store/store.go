@@ -441,6 +441,24 @@ func (s *Store) DeleteSession(token string) {
 	_, _ = s.db.Exec(context.Background(), `DELETE FROM sessions WHERE token = $1`, token)
 }
 
+// DeleteExpiredSessions purges sessions whose expires_at has already
+// passed. Expired sessions are already rejected by GetSession (which
+// checks expires_at on every lookup), so this is pure storage hygiene —
+// nothing user-facing depends on it running promptly, same as
+// debrief.Cleaner's purge of lapsed debrief rooms. Without it the table
+// only ever grows (30-day TTL sessions, never deleted just for expiring),
+// which eventually slows down the GetSession lookup this whole auth flow
+// runs on every request.
+//
+// Returns the number of rows deleted, for the cleanup job's logging.
+func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE expires_at < $1`, now)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // --- WebAuthn ceremony state --------------------------------------------
 
 // SaveCeremony stashes the SessionData produced by BeginRegistration /
@@ -490,4 +508,19 @@ func (s *Store) TakeCeremony(id string) (webauthn.SessionData, error) {
 		return webauthn.SessionData{}, err
 	}
 	return data, nil
+}
+
+// DeleteExpiredCeremonies purges WebAuthn ceremony rows whose 5-minute
+// window has lapsed. TakeCeremony already deletes a ceremony the moment
+// it's successfully used (one-shot, see its doc comment) and rejects
+// anything past expires_at, so the only rows this ever finds are ones
+// that were started and then abandoned — a register/login flow the user
+// never finished. Same "storage hygiene, not correctness" reasoning as
+// DeleteExpiredSessions above.
+func (s *Store) DeleteExpiredCeremonies(ctx context.Context, now time.Time) (int64, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM webauthn_ceremonies WHERE expires_at < $1`, now)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }

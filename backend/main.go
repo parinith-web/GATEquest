@@ -125,6 +125,13 @@ func main() {
 	// for why), but shares the same cancellation context/lifetime.
 	go debrief.NewCleaner(st).Start(schedulerCtx)
 
+	// Auth cleanup (plan.md Phase 5): periodically purges expired
+	// sessions and abandoned WebAuthn ceremonies. Same independent-ticker
+	// reasoning as debrief.Cleaner — its own small loop rather than a
+	// case bolted onto either of the two above — sharing the same
+	// cancellation context/lifetime.
+	go auth.NewCleaner(st).Start(schedulerCtx)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

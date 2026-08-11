@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   getBranch,
   isWiredBranch,
@@ -24,22 +25,34 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [question, setQuestion] = useState<ApiQuestion | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Phase 4, subphase 4c: cache the question itself across navigations —
+  // e.g. going back to a question you already opened this session (via
+  // browser back, or re-clicking it from Problems) renders instantly
+  // instead of re-hitting a possibly cold backend for content that never
+  // changes mid-session.
+  const { data: question = null, error: queryError } = useQuery({
+    queryKey: ["question", id],
+    queryFn: () => fetchQuestion(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const error = (queryError as Error | null)?.message ?? null;
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [natInput, setNatInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [comment, setComment] = useState("");
 
+  // Answer-attempt state is per-question and needs to reset the moment
+  // `id` changes — independent of whether the new question's data comes
+  // from a fresh fetch or straight from cache — so it stays a plain
+  // effect on `id` rather than living inside the query.
   useEffect(() => {
-    if (!id) return;
-    setQuestion(null);
     setSelected(new Set());
     setNatInput("");
     setSubmitted(false);
     setElapsed(0);
-    fetchQuestion(id).then(setQuestion).catch((e) => setError(e.message));
   }, [id]);
 
   useEffect(() => {

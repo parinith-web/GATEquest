@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import ComingSoon from "@/components/ComingSoon";
 import {
@@ -550,33 +551,82 @@ function SortDropdown({
 
 const PAGE_SIZE = 20;
 
+// How many questions we pull from the API per request. Used to be a single
+// `limit: 500` fetch of the entire (filtered) set on every topic switch —
+// heavy over a slow or just-woken connection, and mostly wasted since most
+// visits only ever look at the first page or two. Now we fetch this many
+// at a time and let people pull in more with "Load more" if they need it.
+const QUESTIONS_FETCH_LIMIT = 100;
+
 function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTopic = searchParams.get("topic");
   const subject = BRANCH_SUBJECT[branch];
 
-  const [topics, setTopics] = useState<TopicCount[]>([]);
-  const [allQuestions, setAllQuestions] = useState<QuestionListItem[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("year_desc");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchTopics(subject).then(setTopics).catch((e) => setError(e.message));
-  }, [subject]);
+  // Phase 4, subphase 4a: the question bank barely changes, but this page
+  // used to re-fetch topics and questions from scratch on every mount —
+  // including navigating away to a question and back. React Query caches
+  // both for `staleTime`, so Problems -> Question -> back to Problems
+  // renders instantly from cache instead of re-hitting a possibly cold
+  // backend for data that hasn't changed.
+  const { data: topics = [], error: topicsError } = useQuery({
+    queryKey: ["topics", subject],
+    queryFn: () => fetchTopics(subject),
+    staleTime: 5 * 60 * 1000,
+  });
 
+  // Phase 4, subphase 4b: fetch questions a page at a time instead of the
+  // whole (filtered) set in one shot. useInfiniteQuery still lets the
+  // client-side search/sort/type-filter below operate over everything
+  // loaded so far — it just means the *first* load only has to move
+  // QUESTIONS_FETCH_LIMIT rows over the wire instead of 500, which matters
+  // most exactly when it used to hurt most: a just-woken backend on a slow
+  // connection. Resets automatically when subject/topic change since
+  // they're part of the query key.
+  const {
+    data: questionPages,
+    isLoading: loading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    error: questionsError,
+  } = useInfiniteQuery({
+    queryKey: ["questions", subject, selectedTopic],
+    queryFn: ({ pageParam }) =>
+      fetchQuestions({
+        subject,
+        topic: selectedTopic ?? undefined,
+        limit: QUESTIONS_FETCH_LIMIT,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === QUESTIONS_FETCH_LIMIT
+        ? allPages.length * QUESTIONS_FETCH_LIMIT
+        : undefined,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allQuestions = useMemo(
+    () => questionPages?.pages.flat() ?? [],
+    [questionPages],
+  );
+
+  const error = (questionsError as Error | null)?.message
+    ?? (topicsError as Error | null)?.message
+    ?? null;
+
+  // Filters/sort are client-side derived state, so the page reset that
+  // used to live inside the fetch effects now just reacts to whatever
+  // changed the underlying question set or the visible slice of it.
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     setPage(0);
-    fetchQuestions({ subject, topic: selectedTopic ?? undefined, limit: 500 })
-      .then(setAllQuestions)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [subject, selectedTopic]);
+  }, [subject, selectedTopic, typeFilter, search]);
 
   const filtered = useMemo(() => {
     let result = allQuestions;
@@ -594,10 +644,6 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pageItems = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(0);
-  }, [typeFilter, search]);
 
   return (
     <div className="px-8 pb-8">
@@ -663,6 +709,28 @@ function LiveProblemsView({ branch }: { branch: "cse" | "da" }) {
                 totalItems={sorted.length}
                 pageSize={PAGE_SIZE}
               />
+              {/* Only surfaced once someone has paged/filtered/searched
+                  their way to the end of what's currently loaded — that's
+                  the point where search and sort stop covering the full
+                  question bank until more is pulled in. */}
+              {hasNextPage && page >= pageCount - 1 && (
+                <div className="flex flex-col items-center gap-1 pb-4 -mt-2">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="px-4 py-2 rounded-[4px] border border-gq-border text-sm text-gq-muted hover:border-gq-blue/50 hover:text-gq-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isFetchingNextPage
+                      ? "Loading more…"
+                      : `Load ${QUESTIONS_FETCH_LIMIT} more questions`}
+                  </button>
+                  {(search.trim() || typeFilter !== "all") && (
+                    <span className="text-gq-muted/70 text-xs">
+                      Search and filters only cover questions loaded so far
+                    </span>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
