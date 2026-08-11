@@ -30,6 +30,13 @@ import {
 
 const PAGE_SIZE = 20;
 
+// Category chips offered while composing — mirrors the tag styling used
+// on published posts (see PostCard's hashtag badges / the landing
+// page's PulseMock TAG_STYLE). Picking one just prepends it to the
+// content as a real #hashtag, so it rides the existing hashtag pipeline
+// with no backend changes needed.
+const COMPOSE_TAGS = ["Experience", "Doubt", "Resource", "Advice"] as const;
+
 export default function PulsePage() {
   const { user } = useAuth();
 
@@ -53,6 +60,7 @@ export default function PulsePage() {
 
   // Compose box state
   const [composeText, setComposeText] = useState("");
+  const [composeTag, setComposeTag] = useState<string | null>(null);
   const [composeMediaUrl, setComposeMediaUrl] = useState<string | null>(null);
   const [composeMediaType, setComposeMediaType] = useState<"image" | "video" | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -60,6 +68,18 @@ export default function PulsePage() {
   const [posting, setPosting] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composeTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the compose textarea instead of scrolling inside a fixed
+  // box: reset to the single-line height, then expand to fit whatever
+  // content is actually there. Runs on every keystroke (and once on
+  // mount) so it stays in sync even when text is cleared after posting.
+  useEffect(() => {
+    const el = composeTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [composeText]);
 
   // Infinite-scroll sentinel — observed below, see the effect further
   // down. Kept alongside the Load More button rather than replacing it:
@@ -218,8 +238,14 @@ export default function PulsePage() {
   };
 
   const handlePost = async () => {
-    const content = composeText.trim();
+    let content = composeText.trim();
     if (!content || uploading) return;
+    // Fold the selected category chip in as a real #hashtag (unless the
+    // person already typed that tag themselves) so it rides the same
+    // hashtags column/pipeline everything else on Pulse already uses.
+    if (composeTag && !new RegExp(`#${composeTag}\\b`, "i").test(content)) {
+      content = `#${composeTag} ${content}`;
+    }
     setPosting(true);
     setComposeError(null);
     try {
@@ -234,6 +260,7 @@ export default function PulsePage() {
       setPosts((prev) => [created, ...prev]);
       setTotal((t) => t + 1);
       setComposeText("");
+      setComposeTag(null);
       setComposeMediaUrl(null);
       setComposeMediaType(null);
       loadChannels();
@@ -270,20 +297,50 @@ export default function PulsePage() {
             {/* Compose box */}
             {user ? (
               <div className="rounded-[10px] border border-gq-border bg-gq-card p-3 flex flex-col gap-2.5">
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <img
                     src={user.avatarUrl}
                     alt={user.name}
-                    className="h-8 w-8 shrink-0 rounded-full bg-black object-cover"
+                    className="h-8 w-8 shrink-0 rounded-full bg-black object-cover mt-1"
                   />
                   <textarea
+                    ref={composeTextareaRef}
                     value={composeText}
                     onChange={(e) => setComposeText(e.target.value)}
                     placeholder="Share an experience, a resource, or a #hashtag worth discussing..."
                     rows={1}
                     maxLength={2000}
-                    className="flex-1 resize-none bg-transparent text-[15px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1"
+                    className="flex-1 resize-none bg-transparent text-[15px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1 leading-[1.4] max-h-[320px] overflow-y-auto"
                   />
+
+                  {/* Category chips — only surface once the person has
+                      actually started typing, top-right of the row,
+                      matching the tag badge placement on published
+                      posts / the landing page's Pulse mock. */}
+                  {composeText.trim().length > 0 && (
+                    <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end pt-1.5 max-w-[160px] sm:max-w-none">
+                      {COMPOSE_TAGS.map((tag) => {
+                        const selected = composeTag === tag;
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() =>
+                              setComposeTag((current) => (current === tag ? null : tag))
+                            }
+                            className={cn(
+                              "rounded-[4px] px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] transition-colors",
+                              selected
+                                ? "bg-gq-blue text-[#0E0E0E]"
+                                : "bg-gq-blue/15 text-gq-blue hover:bg-gq-blue/25",
+                            )}
+                          >
+                            #{tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {uploading && (
