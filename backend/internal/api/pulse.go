@@ -32,6 +32,7 @@ type postDTO struct {
 	MediaURL     *string  `json:"mediaUrl"`
 	MediaType    *string  `json:"mediaType"`
 	Hashtags     []string `json:"hashtags"`
+	Tags         []string `json:"tags"`
 	LikeCount    int      `json:"likeCount"`
 	DislikeCount int      `json:"dislikeCount"`
 	CommentCount int      `json:"commentCount"`
@@ -58,6 +59,7 @@ func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
 		MediaURL:     p.MediaURL,
 		MediaType:    p.MediaType,
 		Hashtags:     p.Hashtags,
+		Tags:         p.Tags,
 		LikeCount:    p.LikeCount,
 		DislikeCount: p.DislikeCount,
 		CommentCount: p.CommentCount,
@@ -110,12 +112,19 @@ type createPostRequest struct {
 	Content   string  `json:"content"`
 	MediaURL  *string `json:"mediaUrl"`
 	MediaType *string `json:"mediaType"`
+	// Tags are the personalized labels picked in the compose box's
+	// "Add tags" control. Unlike #hashtags (parsed out of Content),
+	// these are client-supplied — sanitized via store.SanitizeTags
+	// before they ever reach the database, same trust posture as
+	// every other user-entered field.
+	Tags []string `json:"tags"`
 }
 
 // POST /api/pulse/posts
 // Creates a post. #hashtags are parsed out of content server-side (see
 // store.ExtractHashtags) — there's no client-supplied hashtags field to
-// trust.
+// trust. Tags are separate: freeform labels the author chose, kept out
+// of content entirely and sanitized before storage.
 func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
@@ -155,7 +164,7 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 		body.MediaType = nil
 	}
 
-	post, err := h.Store.CreatePost(r.Context(), user.ID, content, body.MediaURL, body.MediaType)
+	post, err := h.Store.CreatePost(r.Context(), user.ID, content, body.MediaURL, body.MediaType, store.SanitizeTags(body.Tags))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create post")
 		return

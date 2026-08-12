@@ -26,6 +26,11 @@ type Post struct {
 	MediaURL     *string
 	MediaType    *string
 	Hashtags     []string
+	// Tags are freeform labels the author picked in the "Add tags"
+	// control at compose time — distinct from Hashtags, which are
+	// parsed out of Content itself. Both render as the same badge in
+	// the UI, but Tags never appear as text inside the post.
+	Tags         []string
 	LikeCount    int
 	DislikeCount int
 	CommentCount int
@@ -61,6 +66,44 @@ func ExtractHashtags(content string) []string {
 	return out
 }
 
+// maxTagsPerPost / maxTagLength bound the "Add tags" control — enough
+// room for a handful of personalized tags without turning the corner
+// badge row into its own scrollable feed.
+const (
+	maxTagsPerPost = 6
+	maxTagLength   = 24
+)
+
+// tagPattern is deliberately the same shape as hashtagPattern (minus
+// the leading '#', which the compose UI doesn't ask the user to type)
+// so a custom tag renders identically to a parsed hashtag badge.
+var tagPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// SanitizeTags trims, strips any leading '#' the client sent anyway,
+// validates characters/length, lower-cases, and de-duplicates a
+// client-supplied tags list — same trust posture as ExtractHashtags:
+// never store anything the client sent verbatim.
+func SanitizeTags(raw []string) []string {
+	seen := make(map[string]bool, len(raw))
+	out := make([]string, 0, len(raw))
+	for _, t := range raw {
+		t = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(t), "#"))
+		if t == "" || len(t) > maxTagLength || !tagPattern.MatchString(t) {
+			continue
+		}
+		lower := strings.ToLower(t)
+		if seen[lower] {
+			continue
+		}
+		seen[lower] = true
+		out = append(out, lower)
+		if len(out) >= maxTagsPerPost {
+			break
+		}
+	}
+	return out
+}
+
 // PostFilter scopes/sorts a Pulse feed query.
 type PostFilter struct {
 	// Hashtag, if non-empty, restricts the feed to posts containing
@@ -84,14 +127,14 @@ const (
 // stay in sync (same columns, same join, same scan order).
 const postSelectColumns = `
 	p.id, p.user_id, u.name, u.avatar_url, p.content, p.media_url,
-	p.media_type, p.hashtags, p.like_count, p.dislike_count,
+	p.media_type, p.hashtags, p.tags, p.like_count, p.dislike_count,
 	p.comment_count, p.share_count, p.created_at`
 
 func scanPost(row interface{ Scan(dest ...any) error }) (*Post, error) {
 	var p Post
 	if err := row.Scan(
 		&p.ID, &p.UserID, &p.AuthorName, &p.AuthorAvatar, &p.Content,
-		&p.MediaURL, &p.MediaType, &p.Hashtags, &p.LikeCount,
+		&p.MediaURL, &p.MediaType, &p.Hashtags, &p.Tags, &p.LikeCount,
 		&p.DislikeCount, &p.CommentCount, &p.ShareCount, &p.CreatedAt,
 	); err != nil {
 		return nil, err
@@ -101,15 +144,21 @@ func scanPost(row interface{ Scan(dest ...any) error }) (*Post, error) {
 
 // CreatePost inserts a new post, parsing #hashtags out of content
 // server-side (never trust a client-supplied hashtags list — it'd let
-// someone tag a post into a channel its text never mentions).
-func (s *Store) CreatePost(ctx context.Context, userID uuid.UUID, content string, mediaURL, mediaType *string) (*Post, error) {
+// someone tag a post into a channel its text never mentions). tags is
+// the separate, already-sanitized (SanitizeTags) list of personalized
+// tags the author picked in the compose box's "Add tags" control — it
+// never touches content, so it never shows up as text in the post.
+func (s *Store) CreatePost(ctx context.Context, userID uuid.UUID, content string, mediaURL, mediaType *string, tags []string) (*Post, error) {
 	id := uuid.New()
 	hashtags := ExtractHashtags(content)
+	if tags == nil {
+		tags = []string{}
+	}
 
 	_, err := s.db.Exec(ctx,
-		`INSERT INTO posts (id, user_id, content, media_url, media_type, hashtags, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, now())`,
-		id, userID, content, mediaURL, mediaType, hashtags,
+		`INSERT INTO posts (id, user_id, content, media_url, media_type, hashtags, tags, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
+		id, userID, content, mediaURL, mediaType, hashtags, tags,
 	)
 	if err != nil {
 		return nil, err

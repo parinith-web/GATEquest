@@ -32,6 +32,11 @@ export interface PulsePost {
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
   hashtags: string[];
+  // Personalized tags the author picked via the compose box's "Add
+  // tags" control — distinct from `hashtags` (parsed out of `content`
+  // server-side). Both render as the same top-right badge, but tags
+  // are never part of the post text.
+  tags: string[];
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -102,6 +107,7 @@ export async function createPulsePost(input: {
   content: string;
   mediaUrl?: string;
   mediaType?: "image" | "video";
+  tags?: string[];
 }): Promise<PulsePost> {
   return jsonFetch(`${API_BASE}/pulse/posts`, {
     method: "POST",

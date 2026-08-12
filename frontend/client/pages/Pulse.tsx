@@ -9,6 +9,7 @@ import {
   Film,
   X,
   Loader2,
+  Tag as TagIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -30,12 +31,12 @@ import {
 
 const PAGE_SIZE = 20;
 
-// Category chips offered while composing — mirrors the tag styling used
-// on published posts (see PostCard's hashtag badges / the landing
-// page's PulseMock TAG_STYLE). Picking one just prepends it to the
-// content as a real #hashtag, so it rides the existing hashtag pipeline
-// with no backend changes needed.
-const COMPOSE_TAGS = ["Experience", "Doubt", "Resource", "Advice"] as const;
+// Bounds for the "Add tags" control — kept in sync with the backend's
+// SanitizeTags (maxTagsPerPost / maxTagLength in store/pulse.go) so the
+// UI rejects/limits input the server would've dropped anyway.
+const MAX_TAGS = 6;
+const MAX_TAG_LENGTH = 24;
+const TAG_CHAR_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export default function PulsePage() {
   const { user } = useAuth();
@@ -60,7 +61,12 @@ export default function PulsePage() {
 
   // Compose box state
   const [composeText, setComposeText] = useState("");
-  const [composeTag, setComposeTag] = useState<string | null>(null);
+  // Personalized tags added via the "Add tags" control near the Post
+  // button — kept entirely separate from composeText so a tag never
+  // shows up as text inside the post itself.
+  const [composeTags, setComposeTags] = useState<string[]>([]);
+  const [tagInputOpen, setTagInputOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
   const [composeMediaUrl, setComposeMediaUrl] = useState<string | null>(null);
   const [composeMediaType, setComposeMediaType] = useState<"image" | "video" | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -80,6 +86,25 @@ export default function PulsePage() {
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }, [composeText]);
+
+  // Commits whatever's in the tag draft input as a new personalized
+  // tag: trims, strips a leading '#' if the person typed one anyway,
+  // validates characters, dedupes case-insensitively, and enforces the
+  // same MAX_TAGS/MAX_TAG_LENGTH the backend will enforce again itself.
+  const commitTagDraft = () => {
+    const raw = tagDraft.trim().replace(/^#/, "");
+    setTagDraft("");
+    if (!raw || raw.length > MAX_TAG_LENGTH || !TAG_CHAR_PATTERN.test(raw)) return;
+    setComposeTags((prev) => {
+      if (prev.length >= MAX_TAGS) return prev;
+      if (prev.some((t) => t.toLowerCase() === raw.toLowerCase())) return prev;
+      return [...prev, raw];
+    });
+  };
+
+  const removeComposeTag = (tag: string) => {
+    setComposeTags((prev) => prev.filter((t) => t !== tag));
+  };
 
   // Infinite-scroll sentinel — observed below, see the effect further
   // down. Kept alongside the Load More button rather than replacing it:
@@ -238,14 +263,21 @@ export default function PulsePage() {
   };
 
   const handlePost = async () => {
-    let content = composeText.trim();
+    const content = composeText.trim();
     if (!content || uploading) return;
-    // Fold the selected category chip in as a real #hashtag (unless the
-    // person already typed that tag themselves) so it rides the same
-    // hashtags column/pipeline everything else on Pulse already uses.
-    if (composeTag && !new RegExp(`#${composeTag}\\b`, "i").test(content)) {
-      content = `#${composeTag} ${content}`;
-    }
+    // If there's an uncommitted tag still sitting in the draft input
+    // (person typed a tag but hit Post instead of Enter), commit it
+    // rather than silently dropping it.
+    const pendingRaw = tagDraft.trim().replace(/^#/, "");
+    const pendingTag =
+      pendingRaw &&
+      pendingRaw.length <= MAX_TAG_LENGTH &&
+      TAG_CHAR_PATTERN.test(pendingRaw) &&
+      !composeTags.some((t) => t.toLowerCase() === pendingRaw.toLowerCase())
+        ? pendingRaw
+        : null;
+    const tags = pendingTag ? [...composeTags, pendingTag] : composeTags;
+
     setPosting(true);
     setComposeError(null);
     try {
@@ -253,6 +285,7 @@ export default function PulsePage() {
         content,
         mediaUrl: composeMediaUrl ?? undefined,
         mediaType: composeMediaType ?? undefined,
+        tags,
       });
       // New post always lands at the top regardless of current sort —
       // it's the newest and (for hot/top) starts at 0 net votes, which
@@ -260,7 +293,9 @@ export default function PulsePage() {
       setPosts((prev) => [created, ...prev]);
       setTotal((t) => t + 1);
       setComposeText("");
-      setComposeTag(null);
+      setComposeTags([]);
+      setTagDraft("");
+      setTagInputOpen(false);
       setComposeMediaUrl(null);
       setComposeMediaType(null);
       loadChannels();
@@ -312,35 +347,6 @@ export default function PulsePage() {
                     maxLength={2000}
                     className="flex-1 resize-none bg-transparent text-[15px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1 leading-[1.4] max-h-[320px] overflow-y-auto"
                   />
-
-                  {/* Category chips — only surface once the person has
-                      actually started typing, top-right of the row,
-                      matching the tag badge placement on published
-                      posts / the landing page's Pulse mock. */}
-                  {composeText.trim().length > 0 && (
-                    <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end pt-1.5 max-w-[160px] sm:max-w-none">
-                      {COMPOSE_TAGS.map((tag) => {
-                        const selected = composeTag === tag;
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() =>
-                              setComposeTag((current) => (current === tag ? null : tag))
-                            }
-                            className={cn(
-                              "rounded-[4px] px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] transition-colors",
-                              selected
-                                ? "bg-gq-blue text-[#0E0E0E]"
-                                : "bg-gq-blue/15 text-gq-blue hover:bg-gq-blue/25",
-                            )}
-                          >
-                            #{tag}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
 
                 {uploading && (
@@ -394,6 +400,31 @@ export default function PulsePage() {
                   <p className="text-[14px] text-pulse-red">{composeError}</p>
                 )}
 
+                {/* Personalized tags picked so far — these post as a
+                    separate `tags` field, never as text inside the
+                    post, and land in the exact top-right badge spot on
+                    the published card (see PostCard's badgeTags). */}
+                {composeTags.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {composeTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1 rounded-[4px] bg-gq-blue/15 pl-1.5 pr-1 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => removeComposeTag(tag)}
+                          title={`Remove #${tag}`}
+                          className="text-gq-blue/70 hover:text-pulse-red"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-t border-gq-border pt-2.5">
                   <div className="flex items-center gap-2 min-w-0">
                     <input
@@ -419,19 +450,65 @@ export default function PulsePage() {
                       {composeText.length}/2000
                     </span>
                   </div>
-                  <button
-                    onClick={handlePost}
-                    disabled={!composeText.trim() || posting || uploading}
-                    className={cn(
-                      "flex items-center gap-1.5 shrink-0 rounded-[6px] px-2.5 py-1 text-[12px] font-semibold transition-colors",
-                      composeText.trim() && !posting && !uploading
-                        ? "bg-gq-blue text-[#0E0E0E] hover:opacity-90"
-                        : "bg-gq-border text-gq-text-muted cursor-not-allowed"
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {tagInputOpen ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[12px] text-gq-text-muted">#</span>
+                        <input
+                          autoFocus
+                          value={tagDraft}
+                          onChange={(e) => setTagDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === ",") {
+                              e.preventDefault();
+                              commitTagDraft();
+                            } else if (e.key === "Escape") {
+                              setTagDraft("");
+                              setTagInputOpen(false);
+                            } else if (
+                              e.key === "Backspace" &&
+                              tagDraft === "" &&
+                              composeTags.length > 0
+                            ) {
+                              removeComposeTag(composeTags[composeTags.length - 1]);
+                            }
+                          }}
+                          onBlur={() => {
+                            commitTagDraft();
+                            setTagInputOpen(false);
+                          }}
+                          placeholder="tag name"
+                          maxLength={MAX_TAG_LENGTH}
+                          className="w-24 bg-transparent border-b border-gq-border text-[12px] text-gq-text placeholder:text-gq-text-muted outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTagInputOpen(true)}
+                        disabled={composeTags.length >= MAX_TAGS}
+                        title="Add tags"
+                        className="flex items-center gap-1 text-[12px] font-medium text-gq-text-muted hover:text-gq-blue transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <TagIcon size={12} />
+                        Add tags
+                      </button>
                     )}
-                  >
-                    {posting && <Loader2 size={11} className="animate-spin" />}
-                    {posting ? "Posting..." : "Post"}
-                  </button>
+                    <button
+                      onClick={handlePost}
+                      disabled={!composeText.trim() || posting || uploading}
+                      className={cn(
+                        "flex items-center gap-1.5 shrink-0 rounded-[6px] px-2.5 py-1 text-[12px] font-semibold transition-colors",
+                        composeText.trim() && !posting && !uploading
+                          ? "bg-gq-blue text-[#0E0E0E] hover:opacity-90"
+                          : "bg-gq-border text-gq-text-muted cursor-not-allowed"
+                      )}
+                    >
+                      {posting && <Loader2 size={11} className="animate-spin" />}
+                      {posting ? "Posting..." : "Post"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

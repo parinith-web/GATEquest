@@ -30,6 +30,7 @@ export interface PostCardProps {
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
   hashtags: string[];
+  tags: string[];
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -47,6 +48,7 @@ export default function PostCard({
   author,
   authorAvatar,
   content,
+  tags,
   mediaUrl,
   mediaType,
   hashtags,
@@ -216,7 +218,14 @@ export default function PostCard({
     }
   };
 
-  const primaryTag = hashtags[0] ? `#${hashtags[0]}` : "post";
+  // Corner badges show both #hashtags parsed from the post text and
+  // personalized tags chosen separately in the compose box — same
+  // badge, same spot, de-duplicated so a tag someone also typed in the
+  // body (e.g. "#experience") doesn't render twice.
+  const badgeTags = [...hashtags, ...tags].filter(
+    (tag, i, all) => all.indexOf(tag) === i,
+  );
+  const primaryTag = badgeTags[0] ? `#${badgeTags[0]}` : "post";
 
   return (
     <article className="rounded-[10px] border border-gq-border bg-gq-card p-3 flex gap-2.5">
@@ -233,17 +242,30 @@ export default function PostCard({
           <span className="text-[11.5px] text-gq-text-muted">· {timeAgo(createdAt)}</span>
 
           <div className="ml-auto flex items-center gap-1.5">
-            {hashtags.length > 0 && (
+            {badgeTags.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap justify-end">
-                {hashtags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => onHashtagClick?.(tag)}
-                    className="rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue hover:bg-gq-blue/25 transition-colors"
-                  >
-                    #{tag}
-                  </button>
-                ))}
+                {badgeTags.map((tag) => {
+                  // Only tags actually parsed out of the post's own text
+                  // are a real channel to filter by — a personalized tag
+                  // that isn't also in the body has nothing to jump to,
+                  // so it renders as a plain (non-clickable) label.
+                  const isChannel = hashtags.includes(tag);
+                  const className =
+                    "rounded-[4px] bg-gq-blue/15 px-1.5 py-[3px] text-[10.5px] font-medium uppercase tracking-[0.04em] text-gq-blue transition-colors";
+                  return isChannel ? (
+                    <button
+                      key={tag}
+                      onClick={() => onHashtagClick?.(tag)}
+                      className={cn(className, "hover:bg-gq-blue/25")}
+                    >
+                      #{tag}
+                    </button>
+                  ) : (
+                    <span key={tag} className={className}>
+                      #{tag}
+                    </span>
+                  );
+                })}
               </div>
             )}
             {isOwner && onDelete && (
