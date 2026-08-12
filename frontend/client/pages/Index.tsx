@@ -146,7 +146,7 @@ function RingStat({
   );
 }
 
-// Trending posts + hashtags now come straight from Pulse (see
+// Trending posts + tags now come straight from Pulse (see
 // fetchPulseFeed/fetchPulseTrending below) instead of this hardcoded
 // list — kept only as the shape reference for the empty/loading states.
 
@@ -258,11 +258,11 @@ export default function Index() {
   // --- Community Trends (live from Pulse) --------------------------------
   // Feed = the hottest posts platform-wide right now (Pulse's own hot
   // ranking — recent, high-engagement), top 5. Trending = the top 5
-  // hashtags by post volume, straight from Pulse. Both pull real Pulse
+  // tags by post volume, straight from Pulse. Both pull real Pulse
   // data — there's no separate "Twitter" integration, Pulse *is* the
   // community feed this card surfaces.
   const [trendingPosts, setTrendingPosts] = useState<PulsePost[]>([]);
-  const [trendingHashtags, setTrendingHashtags] = useState<ChannelCount[]>([]);
+  const [trendingTags, setTrendingTags] = useState<ChannelCount[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(true);
 
   useEffect(() => {
@@ -272,10 +272,10 @@ export default function Index() {
       fetchPulseFeed({ sort: "hot", limit: 5 }),
       fetchPulseTrending(5),
     ])
-      .then(([postsResult, hashtagsResult]) => {
+      .then(([postsResult, tagsResult]) => {
         if (cancelled) return;
         setTrendingPosts(postsResult.status === "fulfilled" ? postsResult.value.posts : []);
-        setTrendingHashtags(hashtagsResult.status === "fulfilled" ? hashtagsResult.value : []);
+        setTrendingTags(tagsResult.status === "fulfilled" ? tagsResult.value : []);
       })
       .finally(() => {
         if (!cancelled) setTrendsLoading(false);
@@ -620,15 +620,15 @@ export default function Index() {
                         <Link
                           key={post.id}
                           to={
-                            post.hashtags[0]
-                              ? `/pulse?hashtag=${encodeURIComponent(post.hashtags[0])}`
+                            post.tags[0]
+                              ? `/pulse?tag=${encodeURIComponent(post.tags[0])}`
                               : "/pulse"
                           }
                           className="flex flex-col gap-1 group"
                         >
                           <div className="flex items-start justify-between">
                             <span className="text-gq-text-muted text-[12px] tracking-[1.2px] uppercase">
-                              {post.hashtags[0] ? `#${post.hashtags[0]}` : "PULSE"} · {post.author}
+                              {post.tags[0] ? `#${post.tags[0]}` : "PULSE"} · {post.author}
                             </span>
                             <ThreeDotsMenu />
                           </div>
@@ -656,9 +656,9 @@ export default function Index() {
                     )}
                   </div>
                 ) : (
-                  /* Trending — top 5 hashtags by post volume in the last
+                  /* Trending — top 5 tags by post volume in the last
                      48h, straight from Pulse
-                     (backend/internal/api/pulse.go TrendingHashtags),
+                     (backend/internal/api/pulse.go TrendingTags),
                      same data source the Pulse page's own "Trending
                      Tags" panel uses. */
                   <div className="flex-1 overflow-y-auto p-[25px] flex flex-col gap-4">
@@ -666,15 +666,15 @@ export default function Index() {
                       <div className="py-10 text-center text-sm text-gq-text-muted">
                         Loading trends…
                       </div>
-                    ) : trendingHashtags.length === 0 ? (
+                    ) : trendingTags.length === 0 ? (
                       <div className="py-10 text-center text-sm text-gq-text-muted">
                         No trending tags yet.
                       </div>
                     ) : (
-                      trendingHashtags.slice(0, 5).map((h, i) => (
+                      trendingTags.slice(0, 5).map((h, i) => (
                         <Link
-                          key={h.hashtag}
-                          to={`/pulse?hashtag=${encodeURIComponent(h.hashtag)}`}
+                          key={h.tag}
+                          to={`/pulse?tag=${encodeURIComponent(h.tag)}`}
                           className="flex items-center justify-between gap-3 group"
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -682,7 +682,7 @@ export default function Index() {
                               {i + 1}
                             </span>
                             <span className="text-white text-[17px] font-medium truncate group-hover:text-gq-blue transition-colors">
-                              #{h.hashtag}
+                              #{h.tag}
                             </span>
                           </div>
                           <span className="text-gq-text-muted text-[13px] shrink-0">

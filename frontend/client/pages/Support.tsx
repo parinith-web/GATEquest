@@ -20,7 +20,7 @@ const FAQS: FaqItem[] = [
   {
     question: "How do I post or attach media in Pulse?",
     answer:
-      "Use the composer at the top of Pulse to share an update — tap the film icon to attach an image or video before posting. Add a #hashtag anywhere in your text to file the post under that topic.",
+      "Use the composer at the top of Pulse to share an update — tap the film icon to attach an image or video before posting. Use the Add tags button next to Post to file it under a topic.",
   },
   {
     question: "Can I change my branch after onboarding?",

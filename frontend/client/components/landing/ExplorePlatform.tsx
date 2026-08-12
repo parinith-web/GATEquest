@@ -98,7 +98,7 @@ const EXPLORE = [
   },
   {
     title: "Pulse",
-    desc: "A live social feed for the cohort — post a doubt, share a trick, follow trending hashtags by subject.",
+    desc: "A live social feed for the cohort — post a doubt, share a trick, follow trending tags by subject.",
     visual: <PulsePostMock />,
   },
 ];

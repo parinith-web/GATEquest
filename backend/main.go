@@ -262,7 +262,7 @@ func main() {
 	r.Get("/api/pulse/posts", apiHandlers.ListPosts)
 	r.Get("/api/pulse/posts/{id}", apiHandlers.GetPost)
 	r.Get("/api/pulse/channels", apiHandlers.ListChannels)
-	r.Get("/api/pulse/trending", apiHandlers.TrendingHashtags)
+	r.Get("/api/pulse/trending", apiHandlers.TrendingTags)
 	r.Get("/api/pulse/posts/{id}/comments", apiHandlers.ListComments)
 	r.Post("/api/pulse/posts/{id}/share", apiHandlers.SharePost)
 

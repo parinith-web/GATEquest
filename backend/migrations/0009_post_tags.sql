@@ -14,5 +14,8 @@
 ALTER TABLE posts
     ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
 
--- Not indexed with GIN like hashtags: tags are author-chosen labels
--- for display, not something the feed filters/channels query by.
+-- Not indexed here — at this point tags were still just a display-only
+-- label alongside the #hashtags parsed from content. Once hashtags
+-- were removed entirely (see 0010_drop_hashtags.sql), tags became the
+-- only thing the feed filters/channels query by and picked up the same
+-- GIN index hashtags used to have.

@@ -26,14 +26,14 @@ const INITIAL_VISIBLE = 8;
 
 interface DebriefPanelProps {
   trending: ChannelCount[];
-  activeHashtag: string | null;
-  onHashtagClick: (tag: string) => void;
+  activeTag: string | null;
+  onTagClick: (tag: string) => void;
 }
 
 export default function DebriefPanel({
   trending,
-  activeHashtag,
-  onHashtagClick,
+  activeTag,
+  onTagClick,
 }: DebriefPanelProps) {
   const { user } = useAuth();
   const [tab, setTab] = useState<"debrief" | "trending">("debrief");
@@ -250,11 +250,11 @@ export default function DebriefPanel({
           <div className="flex flex-col gap-1">
             {trending.slice(0, 10).map((t, i) => (
               <button
-                key={t.hashtag}
-                onClick={() => onHashtagClick(t.hashtag)}
+                key={t.tag}
+                onClick={() => onTagClick(t.tag)}
                 className={cn(
                   "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[15px] transition-colors text-left",
-                  activeHashtag === t.hashtag
+                  activeTag === t.tag
                     ? "text-gq-blue bg-gq-blue/5"
                     : "text-gq-text-muted hover:text-gq-text hover:bg-gq-border/40",
                 )}
@@ -262,7 +262,7 @@ export default function DebriefPanel({
                 <span className="flex items-center gap-2.5">
                   <span className="text-[13px] text-gq-text-muted w-3">{i + 1}</span>
                   <Hash size={12} className="text-gq-text-muted shrink-0" />
-                  {t.hashtag}
+                  {t.tag}
                 </span>
                 <span className="text-[13px] text-gq-text-muted">{t.count}</span>
               </button>

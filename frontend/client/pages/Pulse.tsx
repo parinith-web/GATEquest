@@ -43,8 +43,8 @@ export default function PulsePage() {
 
   const [sortMode, setSortMode] = useState<PulseSort>("hot");
   const [searchParams] = useSearchParams();
-  const [activeHashtag, setActiveHashtag] = useState<string | null>(
-    () => searchParams.get("hashtag") ?? null,
+  const [activeTag, setActiveTag] = useState<string | null>(
+    () => searchParams.get("tag") ?? null,
   );
   // "bookmarks" swaps the center feed for the viewer's saved posts —
   // sort/channel filtering don't apply there, only pagination does.
@@ -112,9 +112,9 @@ export default function PulsePage() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const loadFeed = useCallback(
-    async (opts: { hashtag: string | null; sort: PulseSort; offset: number }) => {
+    async (opts: { tag: string | null; sort: PulseSort; offset: number }) => {
       const result = await fetchPulseFeed({
-        hashtag: opts.hashtag ?? undefined,
+        tag: opts.tag ?? undefined,
         sort: opts.sort,
         limit: PAGE_SIZE,
         offset: opts.offset,
@@ -130,7 +130,7 @@ export default function PulsePage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadFeed({ hashtag: activeHashtag, sort: sortMode, offset: 0 })
+    loadFeed({ tag: activeTag, sort: sortMode, offset: 0 })
       .then((result) => {
         if (cancelled) return;
         setPosts(result.posts ?? []);
@@ -146,7 +146,7 @@ export default function PulsePage() {
     return () => {
       cancelled = true;
     };
-  }, [sortMode, activeHashtag, loadFeed, viewMode]);
+  }, [sortMode, activeTag, loadFeed, viewMode]);
 
   // Load the bookmarks view when switched into it.
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function PulsePage() {
     observer.observe(el);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, loadingMore, posts.length, total, viewMode, sortMode, activeHashtag]);
+  }, [loading, loadingMore, posts.length, total, viewMode, sortMode, activeTag]);
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -229,7 +229,7 @@ export default function PulsePage() {
         viewMode === "bookmarks"
           ? await fetchPulseBookmarks({ limit: PAGE_SIZE, offset: posts.length })
           : await loadFeed({
-              hashtag: activeHashtag,
+              tag: activeTag,
               sort: sortMode,
               offset: posts.length,
             });
@@ -242,9 +242,9 @@ export default function PulsePage() {
     }
   };
 
-  const handleHashtagClick = (tag: string) => {
+  const handleTagClick = (tag: string) => {
     setViewMode("feed");
-    setActiveHashtag((current) => (current === tag ? null : tag));
+    setActiveTag((current) => (current === tag ? null : tag));
   };
 
   const handleMediaPick = async (file: File) => {
@@ -342,7 +342,7 @@ export default function PulsePage() {
                     ref={composeTextareaRef}
                     value={composeText}
                     onChange={(e) => setComposeText(e.target.value)}
-                    placeholder="Share an experience, a resource, or a #hashtag worth discussing..."
+                    placeholder="Share an experience, a resource, or a doubt worth discussing..."
                     rows={1}
                     maxLength={2000}
                     className="flex-1 resize-none bg-transparent text-[15px] font-sans text-gq-text placeholder:text-gq-text-muted outline-none py-1 leading-[1.4] max-h-[320px] overflow-y-auto"
@@ -584,12 +584,12 @@ export default function PulsePage() {
                   Top
                 </button>
 
-                {activeHashtag && (
+                {activeTag && (
                   <button
-                    onClick={() => setActiveHashtag(null)}
+                    onClick={() => setActiveTag(null)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[13px] text-gq-blue"
                   >
-                    #{activeHashtag}
+                    #{activeTag}
                     <X size={11} />
                   </button>
                 )}
@@ -664,8 +664,8 @@ export default function PulsePage() {
                 <p className="text-[14px] text-gq-text-muted">
                   {viewMode === "bookmarks"
                     ? "You haven't bookmarked anything yet."
-                    : activeHashtag
-                      ? `No posts tagged #${activeHashtag} yet.`
+                    : activeTag
+                      ? `No posts tagged #${activeTag} yet.`
                       : "Nothing here yet — be the first to post."}
                 </p>
               </div>
@@ -678,7 +678,7 @@ export default function PulsePage() {
                   <PostCard
                     key={post.id}
                     {...post}
-                    onHashtagClick={handleHashtagClick}
+                    onTagClick={handleTagClick}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -713,8 +713,8 @@ export default function PulsePage() {
           <div className="lg:col-span-4">
             <DebriefPanel
               trending={trending}
-              activeHashtag={activeHashtag}
-              onHashtagClick={handleHashtagClick}
+              activeTag={activeTag}
+              onTagClick={handleTagClick}
             />
           </div>
         </div>

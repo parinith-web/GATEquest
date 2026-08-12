@@ -1,7 +1,7 @@
 // Pulse: the CS community feed. Session 2 — data model + core posting
 // API. Comments, likes/dislikes, and bookmarks are separate endpoints
 // added in a later session; this file only covers creating, listing,
-// fetching, and deleting posts, plus the channel/trending hashtag
+// fetching, and deleting posts, plus the channel/trending tag
 // aggregates the sidebar needs.
 package api
 
@@ -31,7 +31,6 @@ type postDTO struct {
 	Content      string   `json:"content"`
 	MediaURL     *string  `json:"mediaUrl"`
 	MediaType    *string  `json:"mediaType"`
-	Hashtags     []string `json:"hashtags"`
 	Tags         []string `json:"tags"`
 	LikeCount    int      `json:"likeCount"`
 	DislikeCount int      `json:"dislikeCount"`
@@ -58,7 +57,6 @@ func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
 		Content:      p.Content,
 		MediaURL:     p.MediaURL,
 		MediaType:    p.MediaType,
-		Hashtags:     p.Hashtags,
 		Tags:         p.Tags,
 		LikeCount:    p.LikeCount,
 		DislikeCount: p.DislikeCount,
@@ -113,18 +111,17 @@ type createPostRequest struct {
 	MediaURL  *string `json:"mediaUrl"`
 	MediaType *string `json:"mediaType"`
 	// Tags are the personalized labels picked in the compose box's
-	// "Add tags" control. Unlike #hashtags (parsed out of Content),
-	// these are client-supplied — sanitized via store.SanitizeTags
-	// before they ever reach the database, same trust posture as
-	// every other user-entered field.
+	// "Add tags" control — the only tagging mechanism a post has.
+	// Client-supplied, so always routed through store.SanitizeTags
+	// before it reaches the database, same trust posture as every
+	// other user-entered field.
 	Tags []string `json:"tags"`
 }
 
 // POST /api/pulse/posts
-// Creates a post. #hashtags are parsed out of content server-side (see
-// store.ExtractHashtags) — there's no client-supplied hashtags field to
-// trust. Tags are separate: freeform labels the author chose, kept out
-// of content entirely and sanitized before storage.
+// Creates a post. Tags are freeform labels the author chose in the
+// compose box, sanitized via store.SanitizeTags before storage — they
+// never touch content and content is never parsed for them.
 func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
@@ -172,7 +169,7 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toPostDTO(*post, user.ID))
 }
 
-// GET /api/pulse/posts?hashtag=os&sort=hot&limit=20&offset=0
+// GET /api/pulse/posts?tag=os&sort=hot&limit=20&offset=0
 // Public — no auth required to browse the feed, same as the question
 // bank. sort is one of "hot" (default), "new", "top".
 func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
@@ -181,10 +178,10 @@ func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
 	filter := store.PostFilter{
-		Hashtag: q.Get("hashtag"),
-		Sort:    q.Get("sort"),
-		Limit:   limit,
-		Offset:  offset,
+		Tag:    q.Get("tag"),
+		Sort:   q.Get("sort"),
+		Limit:  limit,
+		Offset: offset,
 	}
 
 	posts, err := h.Store.ListPosts(r.Context(), filter)
@@ -193,7 +190,7 @@ func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	total, err := h.Store.CountPosts(r.Context(), filter.Hashtag)
+	total, err := h.Store.CountPosts(r.Context(), filter.Tag)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to count posts")
 		return
@@ -264,12 +261,12 @@ func (h *Handlers) DeletePost(w http.ResponseWriter, r *http.Request) {
 }
 
 type channelDTO struct {
-	Hashtag string `json:"hashtag"`
-	Count   int    `json:"count"`
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
 }
 
 // GET /api/pulse/channels?limit=20
-// Replaces the hardcoded `channels` sidebar array — real hashtag usage
+// Replaces the hardcoded `channels` sidebar array — real tag usage
 // counts across all of Pulse, most-used first.
 func (h *Handlers) ListChannels(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -280,7 +277,7 @@ func (h *Handlers) ListChannels(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]channelDTO, 0, len(channels))
 	for _, c := range channels {
-		out = append(out, channelDTO{Hashtag: c.Hashtag, Count: c.Count})
+		out = append(out, channelDTO{Tag: c.Tag, Count: c.Count})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -288,16 +285,16 @@ func (h *Handlers) ListChannels(w http.ResponseWriter, r *http.Request) {
 // GET /api/pulse/trending?limit=10
 // Same shape as channels, but scoped to the last 48h so a tag that was
 // huge last month doesn't sit at the top of "trending" forever.
-func (h *Handlers) TrendingHashtags(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) TrendingTags(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	tags, err := h.Store.ListTrendingHashtags(r.Context(), 48*time.Hour, limit)
+	tags, err := h.Store.ListTrendingTags(r.Context(), 48*time.Hour, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load trending topics")
 		return
 	}
 	out := make([]channelDTO, 0, len(tags))
 	for _, c := range tags {
-		out = append(out, channelDTO{Hashtag: c.Hashtag, Count: c.Count})
+		out = append(out, channelDTO{Tag: c.Tag, Count: c.Count})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

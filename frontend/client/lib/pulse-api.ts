@@ -31,11 +31,10 @@ export interface PulsePost {
   content: string;
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
-  hashtags: string[];
   // Personalized tags the author picked via the compose box's "Add
-  // tags" control — distinct from `hashtags` (parsed out of `content`
-  // server-side). Both render as the same top-right badge, but tags
-  // are never part of the post text.
+  // tags" control — the only tagging mechanism a post has. Renders as
+  // the top-right badge and drives the channel/trending sidebars; a
+  // tag is never part of the post text itself.
   tags: string[];
   likeCount: number;
   dislikeCount: number;
@@ -72,14 +71,14 @@ export interface PulseVoteResult {
 }
 
 export interface ChannelCount {
-  hashtag: string;
+  tag: string;
   count: number;
 }
 
 export type PulseSort = "hot" | "new" | "top";
 
 export interface PulseFeedQuery {
-  hashtag?: string;
+  tag?: string;
   sort?: PulseSort;
   limit?: number;
   offset?: number;
@@ -92,7 +91,7 @@ export interface PulseFeedResult {
 
 export async function fetchPulseFeed(q: PulseFeedQuery): Promise<PulseFeedResult> {
   const params = new URLSearchParams();
-  if (q.hashtag) params.set("hashtag", q.hashtag);
+  if (q.tag) params.set("tag", q.tag);
   if (q.sort) params.set("sort", q.sort);
   if (q.limit) params.set("limit", String(q.limit));
   if (q.offset) params.set("offset", String(q.offset));
