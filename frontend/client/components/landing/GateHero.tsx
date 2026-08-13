@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { EASE_OUT } from "@/components/landing/motion/variants";
 import { PulseMock } from "@/components/landing/mocks/PulseMock";
-import { useAuth } from "@/lib/auth-context";
 
 /* ------------------------------------------------------------------ */
 /*  Hero — rebuilt to the reference layout: a left-aligned, oversized  */
@@ -16,9 +15,6 @@ import { useAuth } from "@/lib/auth-context";
 /* ------------------------------------------------------------------ */
 
 export default function GateHero() {
-  const { user, loading } = useAuth();
-  const signedIn = !loading && !!user;
-
   return (
     <section
       id="top"
@@ -63,27 +59,12 @@ export default function GateHero() {
               >
                 Explore
               </a>
-              {signedIn ? (
-                <Link
-                  to="/dashboard"
-                  className="flex items-center gap-2.5 rounded-lg border border-white/15 py-2 pl-2 pr-5 text-[14px] font-semibold text-white transition hover:border-white/30"
-                >
-                  <img
-                    src={user!.avatarUrl}
-                    alt={user!.name}
-                    className="h-7 w-7 shrink-0 rounded-full object-cover"
-                    draggable={false}
-                  />
-                  Enter
-                </Link>
-              ) : (
-                <Link
-                  to="/login"
-                  className="rounded-lg border border-white/15 px-5 py-3 text-[14px] font-semibold text-white transition hover:border-white/30"
-                >
-                  Sign in
-                </Link>
-              )}
+              <Link
+                to="/login"
+                className="rounded-lg border border-white/15 px-5 py-3 text-[14px] font-semibold text-white transition hover:border-white/30"
+              >
+                Sign in
+              </Link>
             </div>
 
             <motion.a

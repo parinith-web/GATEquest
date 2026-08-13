@@ -64,50 +64,37 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// "/" is always the marketing Landing page now, whether or not anyone's
-// signed in. Signed-out visitors see the normal Log in / Sign up CTAs;
-// signed-in visitors see the same page with their avatar + an "Enter"
-// button instead (see Navbar/GateHero), which is what actually takes
-// them to the dashboard at "/dashboard". This keeps "/" bookmarkable and
-// shareable for everyone instead of silently turning into a private
-// dashboard depending on who opens it.
+// "/" is shared by the public landing page and the signed-in dashboard:
+// signed-out visitors see the marketing Landing page, signed-in users see
+// the Index dashboard — same URL either way, so links/bookmarks to "/"
+// always resolve to the right thing for whoever opens them.
 //
-// The one thing that still needs resolving here is onboarding: someone
-// mid-onboarding (no branch/username yet) shouldn't land back on the
-// marketing page after signing in, so that redirect stays.
+// Subphase 1a: this used to block on `loading` (i.e. on the /api/auth/me
+// round trip) before rendering anything at all, so every visitor —
+// including anonymous ones who don't need that call answered to see the
+// marketing page — sat on a blank "Loading…" screen for however long a
+// possibly cold-started backend/DB took to respond. Now we render
+// Landing immediately whenever we don't yet have a confirmed signed-in
+// user (loading or not), and only switch to the dashboard/onboarding
+// redirect once the auth check actually resolves with a user.
 //
-// Subphase 1a note (still applies): render Landing immediately whenever
-// we don't yet have a confirmed signed-in user (loading or not) rather
-// than blocking on the /api/auth/me round trip, so anonymous visitors
-// never sit on a blank "Loading…" screen.
+// Subphase 1c: the one case that trade-off makes worse is a *returning,
+// already-signed-in* visitor — they'd see a flash of the marketing
+// Landing page before it swaps to their dashboard once /api/auth/me
+// resolves, which reads as more broken than a plain loading state would.
+// `hadSessionHint` (a non-authoritative localStorage flag — never trusted
+// for access control, see auth-context.tsx) lets us pick the dashboard-
+// shaped RouteLoadingShell instead of Landing for just that case, while
+// true anonymous visitors (the common case) still get Landing instantly
+// with zero backend wait.
 const HomeRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, hadSessionHint } = useAuth();
 
   if (loading) {
-    return <Landing />;
+    return hadSessionHint ? <RouteLoadingShell /> : <Landing />;
   }
   if (!user) {
     return <Landing />;
-  }
-  if (!user.branch) {
-    return <Navigate to="/onboarding" replace />;
-  }
-  if (!user.username) {
-    return <Navigate to="/onboarding/username" replace />;
-  }
-  return <Landing />;
-};
-
-// The actual dashboard, split out from "/" so it has its own bookmarkable
-// URL that only ever resolves for a signed-in, fully-onboarded user.
-const DashboardRoute = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <RouteLoadingShell />;
-  }
-  if (!user) {
-    return <Navigate to="/login" replace />;
   }
   if (!user.branch) {
     return <Navigate to="/onboarding" replace />;
@@ -123,7 +110,6 @@ const AppRoutes = () => (
     <Route path="/login" element={<Login />} />
     <Route path="/login/callback" element={<AuthCallback />} />
     <Route path="/" element={<HomeRoute />} />
-    <Route path="/dashboard" element={<DashboardRoute />} />
     <Route path="/privacy" element={<Privacy />} />
     <Route path="/terms" element={<Terms />} />
     <Route path="/onboarding" element={<Onboarding />} />

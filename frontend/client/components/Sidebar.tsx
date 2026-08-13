@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
   {
-    href: "/dashboard",
+    href: "/",
     label: "Overview",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

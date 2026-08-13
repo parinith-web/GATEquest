@@ -126,7 +126,7 @@ function LiveQuestionPage({ branch }: { branch: "cse" | "da" }) {
         className="flex items-center justify-between px-6 md:px-8 h-[68px] flex-shrink-0 sticky top-0 z-50 animate-fade-in"
         style={{ borderBottom: "1.063px solid rgba(66,71,84,0.3)", background: "#131313", boxShadow: "0 1.063px 2.125px 0 rgba(0,0,0,0.05)" }}
       >
-        <Link to="/dashboard" className="flex items-center gap-3 flex-shrink-0">
+        <Link to="/" className="flex items-center gap-3 flex-shrink-0">
           <img
             src="https://api.builder.io/api/v1/image/assets/TEMP/f0fdb30cca65c742ff99010d484498b2cc8e725f?width=81"
             alt="GATEquest Logo"
@@ -404,7 +404,7 @@ export default function QuestionPage() {
       <p className="max-w-sm text-sm leading-6 text-[#8c909f]">
         We're still building out this branch's question bank. Check back soon — CSE and Data Science &amp; AI are ready to explore in the meantime.
       </p>
-      <Link to="/dashboard" className="text-[#adc6ff] text-sm">Back to overview</Link>
+      <Link to="/" className="text-[#adc6ff] text-sm">Back to overview</Link>
     </div>
   );
 }

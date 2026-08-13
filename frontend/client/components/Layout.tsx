@@ -11,7 +11,7 @@ interface LayoutProps {
 
 const navItems = [
   {
-    href: "/dashboard",
+    href: "/",
     label: "Overview",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -234,7 +234,7 @@ export function Layout({ children, breadcrumb }: LayoutProps) {
           </button>
 
           {/* Brand — logo + name */}
-          <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img
               src="https://api.builder.io/api/v1/image/assets/TEMP/2d820a83d1d61eb1b70ca251f31eb0a04662f9ff?width=60"
               alt="GATEquest"
