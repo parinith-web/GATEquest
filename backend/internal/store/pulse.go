@@ -351,6 +351,53 @@ func (s *Store) ListTrendingTags(ctx context.Context, since time.Duration, limit
 	return out, rows.Err()
 }
 
+// ListPostsByAuthor returns the caller's own posts, most-recent first —
+// backs the "My posts" view so someone can find/manage everything
+// they've published without hunting through the main feed.
+func (s *Store) ListPostsByAuthor(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Post, error) {
+	if limit <= 0 {
+		limit = defaultPostLimit
+	}
+	if limit > maxPostLimit {
+		limit = maxPostLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT `+postSelectColumns+`
+		 FROM posts p
+		 JOIN users u ON u.id = p.user_id
+		 WHERE p.user_id = $1
+		 ORDER BY p.created_at DESC
+		 LIMIT $2 OFFSET $3`,
+		userID, limit, offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Post
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *p)
+	}
+	return out, rows.Err()
+}
+
+// CountPostsByAuthor returns how many posts the caller has published —
+// used for the "My posts" view's pagination/total counter.
+func (s *Store) CountPostsByAuthor(ctx context.Context, userID uuid.UUID) (int, error) {
+	var n int
+	err := s.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM posts WHERE user_id = $1`, userID).Scan(&n)
+	return n, err
+}
+
 // CountPosts returns the total number of Pulse posts, matching filter's
 // Tag scope (Sort/Limit/Offset are ignored). Used for the "Total Nodes:
 // N" counter and for pagination ("has more" checks).

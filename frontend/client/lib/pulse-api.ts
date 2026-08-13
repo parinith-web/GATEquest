@@ -189,6 +189,17 @@ export async function fetchPulseBookmarks(
   return jsonFetch(`${API_BASE}/pulse/bookmarks?${params.toString()}`);
 }
 
+/** The caller's own posts, most-recently-published first — backs the
+ * "My posts" view alongside bookmarks. */
+export async function fetchPulseMyPosts(
+  opts: { limit?: number; offset?: number } = {},
+): Promise<PulseFeedResult> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set("limit", String(opts.limit));
+  if (opts.offset) params.set("offset", String(opts.offset));
+  return jsonFetch(`${API_BASE}/pulse/my-posts?${params.toString()}`);
+}
+
 /** Bumps the post's share counter server-side; call alongside the
  * clipboard copy so the count survives a refresh instead of living only
  * in local component state. */

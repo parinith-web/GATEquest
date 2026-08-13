@@ -229,6 +229,7 @@ func main() {
 		r.Post("/api/pulse/posts/{id}/bookmark", apiHandlers.BookmarkPost)
 		r.Delete("/api/pulse/posts/{id}/bookmark", apiHandlers.UnbookmarkPost)
 		r.Get("/api/pulse/bookmarks", apiHandlers.ListBookmarks)
+		r.Get("/api/pulse/my-posts", apiHandlers.ListMyPosts)
 
 		// Pulse media upload (session 5): the compose box uploads a
 		// file here first and gets back a URL to attach to the post,

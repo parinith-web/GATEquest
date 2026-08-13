@@ -289,6 +289,43 @@ func (h *Handlers) DeletePost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// GET /api/pulse/my-posts?limit=&offset=
+// The caller's own posts, most-recently-published first — backs the
+// "My posts" view alongside bookmarks, so someone can see and manage
+// everything they've posted to Pulse.
+func (h *Handlers) ListMyPosts(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	posts, err := h.Store.ListPostsByAuthor(r.Context(), user.ID, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load your posts")
+		return
+	}
+	total, err := h.Store.CountPostsByAuthor(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to count your posts")
+		return
+	}
+
+	out, err := h.hydratePostDTOs(r, posts, user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load reactions")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"posts": out,
+		"total": total,
+	})
+}
+
 type channelDTO struct {
 	Tag   string `json:"tag"`
 	Count int    `json:"count"`

@@ -10,6 +10,7 @@ import {
   X,
   Loader2,
   Tag as TagIcon,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -26,6 +27,7 @@ import {
   fetchPulseBookmarks,
   fetchPulseChannels,
   fetchPulseFeed,
+  fetchPulseMyPosts,
   fetchPulseTrending,
   uploadPulseMedia,
 } from "@/lib/pulse-api";
@@ -63,9 +65,12 @@ export default function PulsePage() {
   const [activeTag, setActiveTag] = useState<string | null>(
     () => searchParams.get("tag") ?? null,
   );
-  // "bookmarks" swaps the center feed for the viewer's saved posts —
-  // sort/channel filtering don't apply there, only pagination does.
-  const [viewMode, setViewMode] = useState<"feed" | "bookmarks">("feed");
+  // "bookmarks" swaps the center feed for the viewer's saved posts, and
+  // "mine" swaps it for the viewer's own published posts — sort/channel
+  // filtering don't apply in either, only pagination does.
+  const [viewMode, setViewMode] = useState<"feed" | "bookmarks" | "mine">(
+    "feed",
+  );
 
   const [posts, setPosts] = useState<PulsePost[]>([]);
   const [total, setTotal] = useState(0);
@@ -168,9 +173,9 @@ export default function PulsePage() {
     };
   }, [sortMode, activeTag, loadFeed, viewMode]);
 
-  // Load the bookmarks view when switched into it.
+  // Load the bookmarks or "My posts" view when switched into either.
   useEffect(() => {
-    if (viewMode !== "bookmarks") return;
+    if (viewMode !== "bookmarks" && viewMode !== "mine") return;
     if (!user) {
       setPosts([]);
       setTotal(0);
@@ -180,7 +185,11 @@ export default function PulsePage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchPulseBookmarks({ limit: PAGE_SIZE, offset: 0 })
+    const fetcher =
+      viewMode === "bookmarks"
+        ? fetchPulseBookmarks({ limit: PAGE_SIZE, offset: 0 })
+        : fetchPulseMyPosts({ limit: PAGE_SIZE, offset: 0 });
+    fetcher
       .then((result) => {
         if (cancelled) return;
         setPosts(result.posts ?? []);
@@ -188,7 +197,13 @@ export default function PulsePage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load bookmarks");
+        setError(
+          err instanceof Error
+            ? err.message
+            : viewMode === "bookmarks"
+              ? "Failed to load bookmarks"
+              : "Failed to load your posts",
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -248,11 +263,13 @@ export default function PulsePage() {
       const result =
         viewMode === "bookmarks"
           ? await fetchPulseBookmarks({ limit: PAGE_SIZE, offset: posts.length })
-          : await loadFeed({
-              tag: activeTag,
-              sort: sortMode,
-              offset: posts.length,
-            });
+          : viewMode === "mine"
+            ? await fetchPulseMyPosts({ limit: PAGE_SIZE, offset: posts.length })
+            : await loadFeed({
+                tag: activeTag,
+                sort: sortMode,
+                offset: posts.length,
+              });
       setPosts((prev) => [...prev, ...(result.posts ?? [])]);
       setTotal(result.total);
     } catch (err) {
@@ -596,6 +613,15 @@ export default function PulsePage() {
                     Your bookmarks
                     <X size={11} />
                   </button>
+                ) : viewMode === "mine" ? (
+                  <button
+                    onClick={() => setViewMode("feed")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gq-blue/40 bg-gq-blue/10 text-[13px] text-gq-blue"
+                  >
+                    <UserRound size={12} />
+                    Your posts
+                    <X size={11} />
+                  </button>
                 ) : (
                   <>
                 {/* HOT */}
@@ -663,6 +689,20 @@ export default function PulsePage() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* My posts toggle */}
+                <button
+                  onClick={() => setViewMode((m) => (m === "mine" ? "feed" : "mine"))}
+                  title={viewMode === "mine" ? "Back to feed" : "Your posts"}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[13px] transition-colors",
+                    viewMode === "mine"
+                      ? "border-gq-blue/40 bg-gq-blue/10 text-gq-blue"
+                      : "border-gq-border bg-transparent text-gq-text-muted hover:text-gq-text",
+                  )}
+                >
+                  <UserRound size={12} />
+                </button>
+
                 {/* Bookmarks toggle */}
                 <button
                   onClick={() => setViewMode((m) => (m === "bookmarks" ? "feed" : "bookmarks"))}
@@ -680,7 +720,12 @@ export default function PulsePage() {
                 {/* Total nodes */}
                 <div className="px-2.5 py-1.5 rounded-full border border-gq-border bg-gq-card">
                   <span className="text-[13px] text-gq-text-muted">
-                    {viewMode === "bookmarks" ? "Saved" : "Total"}: {total.toLocaleString()}
+                    {viewMode === "bookmarks"
+                      ? "Saved"
+                      : viewMode === "mine"
+                        ? "Posted"
+                        : "Total"}
+                    : {total.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -716,22 +761,29 @@ export default function PulsePage() {
               </div>
             )}
 
-            {!loading && !error && viewMode === "bookmarks" && !user && (
+            {!loading && !error && (viewMode === "bookmarks" || viewMode === "mine") && !user && (
               <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-gq-border rounded-[10px]">
                 <p className="text-[14px] text-gq-text-muted">
-                  Log in to see posts you've bookmarked.
+                  {viewMode === "bookmarks"
+                    ? "Log in to see posts you've bookmarked."
+                    : "Log in to see posts you've published."}
                 </p>
               </div>
             )}
 
-            {!loading && !error && posts.length === 0 && !(viewMode === "bookmarks" && !user) && (
+            {!loading &&
+              !error &&
+              posts.length === 0 &&
+              !((viewMode === "bookmarks" || viewMode === "mine") && !user) && (
               <div className="flex flex-col items-center gap-2 py-16 text-center border border-dashed border-gq-border rounded-[10px]">
                 <p className="text-[14px] text-gq-text-muted">
                   {viewMode === "bookmarks"
                     ? "You haven't bookmarked anything yet."
-                    : activeTag
-                      ? `No posts tagged #${activeTag} yet.`
-                      : "Nothing here yet — be the first to post."}
+                    : viewMode === "mine"
+                      ? "You haven't posted anything yet."
+                      : activeTag
+                        ? `No posts tagged #${activeTag} yet.`
+                        : "Nothing here yet — be the first to post."}
                 </p>
               </div>
             )}
