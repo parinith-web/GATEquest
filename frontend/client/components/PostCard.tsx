@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import PulseMediaGallery from "@/components/pulse/PulseMediaGallery";
 import {
   PulseComment,
+  PulseMedia,
   timeAgo,
   votePulsePost,
   bookmarkPulsePost,
@@ -27,8 +29,7 @@ export interface PostCardProps {
   author: string;
   authorAvatar: string;
   content: string;
-  mediaUrl: string | null;
-  mediaType: "image" | "video" | null;
+  media: PulseMedia[];
   tags: string[];
   likeCount: number;
   dislikeCount: number;
@@ -48,8 +49,7 @@ export default function PostCard({
   authorAvatar,
   content,
   tags,
-  mediaUrl,
-  mediaType,
+  media,
   likeCount,
   dislikeCount,
   commentCount,
@@ -263,21 +263,9 @@ export default function PostCard({
           {content}
         </p>
 
-        {/* Attached media */}
-        {mediaUrl && mediaType === "image" && (
-          <img
-            src={mediaUrl}
-            alt=""
-            className="w-full max-h-[420px] object-cover rounded-[8px] border border-gq-border"
-          />
-        )}
-        {mediaUrl && mediaType === "video" && (
-          <video
-            src={mediaUrl}
-            controls
-            className="w-full max-h-[420px] rounded-[8px] border border-gq-border"
-          />
-        )}
+        {/* Attached media — original aspect ratio over a blurred fill,
+            grid + lightbox once there's more than one attachment. */}
+        <PulseMediaGallery media={media} />
 
         {/* Actions */}
         <div className="flex items-center gap-4 pt-1 text-[11.5px] text-gq-text-muted flex-wrap">

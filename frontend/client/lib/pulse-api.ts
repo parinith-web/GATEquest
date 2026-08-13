@@ -24,11 +24,20 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface PulseMedia {
+  url: string;
+  type: "image" | "video";
+}
+
 export interface PulsePost {
   id: string;
   author: string;
   authorAvatar: string;
   content: string;
+  // Every attachment on the post, in upload order. Empty when there's
+  // none. mediaUrl/mediaType below mirror media[0] and are kept only
+  // for older callers — new code should read `media`.
+  media: PulseMedia[];
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
   // Personalized tags the author picked via the compose box's "Add
@@ -104,8 +113,7 @@ export async function fetchPulsePost(id: string): Promise<PulsePost> {
 
 export async function createPulsePost(input: {
   content: string;
-  mediaUrl?: string;
-  mediaType?: "image" | "video";
+  media?: PulseMedia[];
   tags?: string[];
 }): Promise<PulsePost> {
   return jsonFetch(`${API_BASE}/pulse/posts`, {

@@ -5,6 +5,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -13,6 +14,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// PostMedia is one attachment on a post. A post can carry several —
+// the compose box lets an author attach multiple images/videos, stored
+// in the order they were added.
+type PostMedia struct {
+	URL  string `json:"url"`
+	Type string `json:"type"` // "image" or "video"
+}
 
 // Post is one Pulse post ("tweet") with enough author info denormalized
 // in that the frontend never needs a second round trip to render a
@@ -23,8 +32,9 @@ type Post struct {
 	AuthorName   string
 	AuthorAvatar string
 	Content      string
-	MediaURL     *string
-	MediaType    *string
+	// Media holds every attachment on the post, in upload order. Empty
+	// (never nil) when there's no attachment.
+	Media []PostMedia
 	// Tags are freeform labels the author picked in the "Add tags"
 	// control at compose time. They're the only tagging mechanism Pulse
 	// has — there used to also be #hashtags auto-parsed out of post
@@ -102,36 +112,76 @@ const (
 // postSelectColumns is shared between ListPosts and GetPost so the two
 // stay in sync (same columns, same join, same scan order).
 const postSelectColumns = `
-	p.id, p.user_id, u.name, u.avatar_url, p.content, p.media_url,
-	p.media_type, p.tags, p.like_count, p.dislike_count,
+	p.id, p.user_id, u.name, u.avatar_url, p.content, p.media,
+	p.tags, p.like_count, p.dislike_count,
 	p.comment_count, p.share_count, p.created_at`
 
 func scanPost(row interface{ Scan(dest ...any) error }) (*Post, error) {
 	var p Post
+	var mediaRaw []byte
 	if err := row.Scan(
 		&p.ID, &p.UserID, &p.AuthorName, &p.AuthorAvatar, &p.Content,
-		&p.MediaURL, &p.MediaType, &p.Tags, &p.LikeCount,
+		&mediaRaw, &p.Tags, &p.LikeCount,
 		&p.DislikeCount, &p.CommentCount, &p.ShareCount, &p.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
+	p.Media = []PostMedia{}
+	if len(mediaRaw) > 0 {
+		if err := json.Unmarshal(mediaRaw, &p.Media); err != nil {
+			return nil, err
+		}
+	}
 	return &p, nil
+}
+
+// maxMediaPerPost bounds how many attachments a single post can carry —
+// enough for a small gallery of screenshots/clips without a post
+// turning into an unbounded upload dump.
+const maxMediaPerPost = 10
+
+// SanitizeMedia trims a client-supplied media list down to something
+// safe to store: caps the count at maxMediaPerPost and drops any entry
+// with an empty URL or a type other than "image"/"video". Never trust
+// it verbatim — this is the one place a post's media gets written.
+func SanitizeMedia(raw []PostMedia) []PostMedia {
+	out := make([]PostMedia, 0, len(raw))
+	for _, m := range raw {
+		url := strings.TrimSpace(m.URL)
+		mt := strings.ToLower(strings.TrimSpace(m.Type))
+		if url == "" || (mt != "image" && mt != "video") {
+			continue
+		}
+		out = append(out, PostMedia{URL: url, Type: mt})
+		if len(out) >= maxMediaPerPost {
+			break
+		}
+	}
+	return out
 }
 
 // CreatePost inserts a new post. tags is the already-sanitized
 // (SanitizeTags) list of personalized tags the author picked in the
 // compose box's "Add tags" control — content is stored as-is, with no
-// server-side parsing of it for tags.
-func (s *Store) CreatePost(ctx context.Context, userID uuid.UUID, content string, mediaURL, mediaType *string, tags []string) (*Post, error) {
+// server-side parsing of it for tags. media is the already-sanitized
+// (SanitizeMedia) list of attachments, in the order they were added.
+func (s *Store) CreatePost(ctx context.Context, userID uuid.UUID, content string, media []PostMedia, tags []string) (*Post, error) {
 	id := uuid.New()
 	if tags == nil {
 		tags = []string{}
 	}
+	if media == nil {
+		media = []PostMedia{}
+	}
+	mediaJSON, err := json.Marshal(media)
+	if err != nil {
+		return nil, err
+	}
 
-	_, err := s.db.Exec(ctx,
-		`INSERT INTO posts (id, user_id, content, media_url, media_type, tags, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, now())`,
-		id, userID, content, mediaURL, mediaType, tags,
+	_, err = s.db.Exec(ctx,
+		`INSERT INTO posts (id, user_id, content, media, tags, created_at)
+		 VALUES ($1, $2, $3, $4, $5, now())`,
+		id, userID, content, mediaJSON, tags,
 	)
 	if err != nil {
 		return nil, err

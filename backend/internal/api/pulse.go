@@ -24,11 +24,23 @@ import (
 // Pulse is for quick updates, links, and resources.
 const maxPostContentLength = 2000
 
+// mediaDTO mirrors store.PostMedia for the wire — kept as its own type
+// (rather than reusing store.PostMedia directly) so the JSON field
+// names are an API contract independent of the store's internal shape.
+type mediaDTO struct {
+	URL  string `json:"url"`
+	Type string `json:"type"`
+}
+
 type postDTO struct {
-	ID           string   `json:"id"`
-	Author       string   `json:"author"`
-	AuthorAvatar string   `json:"authorAvatar"`
-	Content      string   `json:"content"`
+	ID           string     `json:"id"`
+	Author       string     `json:"author"`
+	AuthorAvatar string     `json:"authorAvatar"`
+	Content      string     `json:"content"`
+	Media        []mediaDTO `json:"media"`
+	// MediaURL/MediaType mirror media[0] for older clients that only
+	// know about a single attachment — kept as a read-only convenience,
+	// never written to independently of Media.
 	MediaURL     *string  `json:"mediaUrl"`
 	MediaType    *string  `json:"mediaType"`
 	Tags         []string `json:"tags"`
@@ -50,13 +62,23 @@ type postDTO struct {
 }
 
 func toPostDTO(p store.Post, viewerID uuid.UUID) postDTO {
+	media := make([]mediaDTO, 0, len(p.Media))
+	for _, m := range p.Media {
+		media = append(media, mediaDTO{URL: m.URL, Type: m.Type})
+	}
+	var legacyURL, legacyType *string
+	if len(p.Media) > 0 {
+		legacyURL = &p.Media[0].URL
+		legacyType = &p.Media[0].Type
+	}
 	return postDTO{
 		ID:           p.ID.String(),
 		Author:       p.AuthorName,
 		AuthorAvatar: p.AuthorAvatar,
 		Content:      p.Content,
-		MediaURL:     p.MediaURL,
-		MediaType:    p.MediaType,
+		Media:        media,
+		MediaURL:     legacyURL,
+		MediaType:    legacyType,
 		Tags:         p.Tags,
 		LikeCount:    p.LikeCount,
 		DislikeCount: p.DislikeCount,
@@ -107,7 +129,15 @@ func currentUserID(r *http.Request) uuid.UUID {
 }
 
 type createPostRequest struct {
-	Content   string  `json:"content"`
+	Content string `json:"content"`
+	// Media is the list of attachments the compose box uploaded before
+	// posting (see UploadMedia) — one createPost call can now carry
+	// several. Client-supplied, so always routed through
+	// store.SanitizeMedia before it reaches the database.
+	Media []mediaDTO `json:"media"`
+	// MediaURL/MediaType are accepted for backward compatibility with
+	// the single-attachment shape — folded into Media below when
+	// present and Media itself is empty.
 	MediaURL  *string `json:"mediaUrl"`
 	MediaType *string `json:"mediaType"`
 	// Tags are the personalized labels picked in the compose box's
@@ -145,23 +175,22 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.MediaURL != nil && strings.TrimSpace(*body.MediaURL) == "" {
-		body.MediaURL = nil
-	}
-	if body.MediaType != nil {
-		mt := strings.ToLower(strings.TrimSpace(*body.MediaType))
-		if mt != "image" && mt != "video" {
-			writeError(w, http.StatusBadRequest, "mediaType must be 'image' or 'video'")
-			return
+	// Fold the legacy single-attachment fields into Media when the
+	// caller used those instead of the new list.
+	if len(body.Media) == 0 && body.MediaURL != nil && strings.TrimSpace(*body.MediaURL) != "" {
+		mt := ""
+		if body.MediaType != nil {
+			mt = *body.MediaType
 		}
-		body.MediaType = &mt
-	}
-	if body.MediaURL == nil {
-		// A media type with no URL doesn't mean anything.
-		body.MediaType = nil
+		body.Media = []mediaDTO{{URL: *body.MediaURL, Type: mt}}
 	}
 
-	post, err := h.Store.CreatePost(r.Context(), user.ID, content, body.MediaURL, body.MediaType, store.SanitizeTags(body.Tags))
+	media := make([]store.PostMedia, 0, len(body.Media))
+	for _, m := range body.Media {
+		media = append(media, store.PostMedia{URL: m.URL, Type: m.Type})
+	}
+
+	post, err := h.Store.CreatePost(r.Context(), user.ID, content, store.SanitizeMedia(media), store.SanitizeTags(body.Tags))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create post")
 		return

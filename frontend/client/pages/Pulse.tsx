@@ -18,6 +18,7 @@ import DebriefPanel from "@/components/pulse/DebriefPanel";
 import { useAuth } from "@/lib/auth-context";
 import {
   ChannelCount,
+  PulseMedia,
   PulsePost,
   PulseSort,
   createPulsePost,
@@ -30,6 +31,22 @@ import {
 } from "@/lib/pulse-api";
 
 const PAGE_SIZE = 20;
+
+// Keep in sync with maxMediaPerPost in backend/internal/store/pulse.go —
+// the compose box shouldn't let someone queue up more attachments than
+// the server will actually keep.
+const MAX_MEDIA_PER_POST = 10;
+
+// One attachment mid-upload/uploaded in the compose box. `id` is a
+// local-only key (not the server URL) so a card can be found and
+// removed/updated by identity even before its upload finishes.
+interface ComposeAttachment {
+  id: string;
+  url: string | null;
+  mediaType: "image" | "video";
+  progress: number;
+  error: string | null;
+}
 
 // Bounds for the "Add tags" control — kept in sync with the backend's
 // SanitizeTags (maxTagsPerPost / maxTagLength in store/pulse.go) so the
@@ -67,10 +84,13 @@ export default function PulsePage() {
   const [composeTags, setComposeTags] = useState<string[]>([]);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
-  const [composeMediaUrl, setComposeMediaUrl] = useState<string | null>(null);
-  const [composeMediaType, setComposeMediaType] = useState<"image" | "video" | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // One or more attachments queued in the compose box — each uploads
+  // independently so a slow video doesn't block an already-finished
+  // image from showing its preview.
+  const [composeAttachments, setComposeAttachments] = useState<
+    ComposeAttachment[]
+  >([]);
+  const uploading = composeAttachments.some((a) => a.url === null && !a.error);
   const [posting, setPosting] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,19 +267,61 @@ export default function PulsePage() {
     setActiveTag((current) => (current === tag ? null : tag));
   };
 
-  const handleMediaPick = async (file: File) => {
+  // Uploads one file into its own attachment slot, tracked by a
+  // local-only id so its progress/result can be updated independently
+  // of every other in-flight upload.
+  const uploadOneAttachment = (file: File) => {
+    const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const guessedType = file.type.startsWith("video/") ? "video" : "image";
+    setComposeAttachments((prev) => [
+      ...prev,
+      { id: localId, url: null, mediaType: guessedType, progress: 0, error: null },
+    ]);
+    uploadPulseMedia(file, (pct) => {
+      setComposeAttachments((prev) =>
+        prev.map((a) => (a.id === localId ? { ...a, progress: pct } : a)),
+      );
+    })
+      .then((result) => {
+        setComposeAttachments((prev) =>
+          prev.map((a) =>
+            a.id === localId
+              ? { ...a, url: result.url, mediaType: result.mediaType, progress: 100 }
+              : a,
+          ),
+        );
+      })
+      .catch((err) => {
+        setComposeAttachments((prev) =>
+          prev.map((a) =>
+            a.id === localId
+              ? {
+                  ...a,
+                  error: err instanceof Error ? err.message : "Upload failed",
+                }
+              : a,
+          ),
+        );
+      });
+  };
+
+  const handleMediaPick = (files: FileList) => {
     setComposeError(null);
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const result = await uploadPulseMedia(file, setUploadProgress);
-      setComposeMediaUrl(result.url);
-      setComposeMediaType(result.mediaType);
-    } catch (err) {
-      setComposeError(err instanceof Error ? err.message : "Could not upload that file");
-    } finally {
-      setUploading(false);
+    const room = MAX_MEDIA_PER_POST - composeAttachments.length;
+    if (room <= 0) {
+      setComposeError(`You can attach up to ${MAX_MEDIA_PER_POST} files per post.`);
+      return;
     }
+    Array.from(files)
+      .slice(0, room)
+      .forEach(uploadOneAttachment);
+    if (files.length > room) {
+      setComposeError(`Only the first ${room} file(s) were added — ${MAX_MEDIA_PER_POST} max per post.`);
+    }
+  };
+
+  const removeComposeAttachment = (id: string) => {
+    setComposeAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
   const handlePost = async () => {
@@ -278,13 +340,16 @@ export default function PulsePage() {
         : null;
     const tags = pendingTag ? [...composeTags, pendingTag] : composeTags;
 
+    const media: PulseMedia[] = composeAttachments
+      .filter((a): a is ComposeAttachment & { url: string } => a.url !== null)
+      .map((a) => ({ url: a.url, type: a.mediaType }));
+
     setPosting(true);
     setComposeError(null);
     try {
       const created = await createPulsePost({
         content,
-        mediaUrl: composeMediaUrl ?? undefined,
-        mediaType: composeMediaType ?? undefined,
+        media: media.length > 0 ? media : undefined,
         tags,
       });
       // New post always lands at the top regardless of current sort —
@@ -296,8 +361,7 @@ export default function PulsePage() {
       setComposeTags([]);
       setTagDraft("");
       setTagInputOpen(false);
-      setComposeMediaUrl(null);
-      setComposeMediaType(null);
+      setComposeAttachments([]);
       loadChannels();
       loadTrending();
     } catch (err) {
@@ -349,50 +413,50 @@ export default function PulsePage() {
                   />
                 </div>
 
-                {uploading && (
-                  <div className="flex items-center gap-2 w-fit px-3 py-2 rounded-md border border-gq-border bg-gq-card">
-                    <Loader2 size={13} className="animate-spin text-gq-blue" />
-                    <span className="text-[13px] text-gq-text-muted">
-                      Uploading... {uploadProgress}%
-                    </span>
-                  </div>
-                )}
-
-                {!uploading && composeMediaUrl && composeMediaType === "image" && (
-                  <div className="relative w-fit">
-                    <img
-                      src={composeMediaUrl}
-                      alt=""
-                      className="max-h-[200px] rounded-md border border-gq-border"
-                    />
-                    <button
-                      onClick={() => {
-                        setComposeMediaUrl(null);
-                        setComposeMediaType(null);
-                      }}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gq-card border border-gq-border flex items-center justify-center text-gq-text-muted hover:text-pulse-red"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                )}
-
-                {!uploading && composeMediaUrl && composeMediaType === "video" && (
-                  <div className="relative w-fit">
-                    <video
-                      src={composeMediaUrl}
-                      controls
-                      className="max-h-[200px] rounded-md border border-gq-border"
-                    />
-                    <button
-                      onClick={() => {
-                        setComposeMediaUrl(null);
-                        setComposeMediaType(null);
-                      }}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gq-card border border-gq-border flex items-center justify-center text-gq-text-muted hover:text-pulse-red"
-                    >
-                      <X size={12} />
-                    </button>
+                {/* Attachment previews — each uploads independently, so
+                    a still-uploading video sits alongside an already-
+                    finished image instead of blocking it. */}
+                {composeAttachments.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {composeAttachments.map((att) => (
+                      <div
+                        key={att.id}
+                        className="relative w-[92px] h-[92px] rounded-md border border-gq-border bg-black/40 overflow-hidden flex items-center justify-center"
+                      >
+                        {att.url ? (
+                          att.mediaType === "image" ? (
+                            <img
+                              src={att.url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={att.url}
+                              className="w-full h-full object-cover"
+                              muted
+                            />
+                          )
+                        ) : att.error ? (
+                          <span className="px-1.5 text-center text-[10px] text-pulse-red">
+                            {att.error}
+                          </span>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1">
+                            <Loader2 size={14} className="animate-spin text-gq-blue" />
+                            <span className="text-[10px] text-gq-text-muted">
+                              {att.progress}%
+                            </span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removeComposeAttachment(att.id)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gq-card border border-gq-border flex items-center justify-center text-gq-text-muted hover:text-pulse-red"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -431,18 +495,19 @@ export default function PulsePage() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*,video/*"
+                      multiple
                       className="hidden"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleMediaPick(file);
+                        const files = e.target.files;
+                        if (files && files.length > 0) handleMediaPick(files);
                         e.target.value = "";
                       }}
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
+                      disabled={composeAttachments.length >= MAX_MEDIA_PER_POST}
                       className="flex items-center gap-1.5 text-gq-text-muted hover:text-gq-blue transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                      title="Attach an image or video"
+                      title="Attach images or videos"
                     >
                       <Film size={13} />
                     </button>
