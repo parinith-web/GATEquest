@@ -2,12 +2,16 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { EASE_OUT } from "@/components/landing/motion/variants";
+import { useAuth } from "@/lib/auth-context";
 
 /* Closing CTA — sits between the Pulse feed and the footer. Big statement
    line on a soft radial glow (same gq-blue-tinted spotlight treatment as
    GateHero's backdrop), single white pill button beneath it. */
 
 export function ReadyToStart() {
+  const { user, loading } = useAuth();
+  const signedIn = !loading && !!user;
+
   return (
     <section className="relative w-full overflow-hidden bg-gq-bg px-6 py-32 md:py-44 lg:py-52">
       <div
@@ -36,12 +40,27 @@ export function ReadyToStart() {
           transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.12 }}
           className="mt-9"
         >
-          <Link
-            to="/login"
-            className="inline-flex items-center justify-center rounded-xl bg-white px-8 py-3.5 text-[15px] font-semibold text-[#0E0E0E] transition hover:bg-gray-200"
-          >
-            Sign in
-          </Link>
+          {signedIn ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-3 rounded-xl bg-white py-2 pl-2 pr-8 text-[15px] font-semibold text-[#0E0E0E] transition hover:bg-gray-200"
+            >
+              <img
+                src={user!.avatarUrl}
+                alt={user!.name}
+                className="h-9 w-9 shrink-0 rounded-full object-cover"
+                draggable={false}
+              />
+              Enter
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center rounded-xl bg-white px-8 py-3.5 text-[15px] font-semibold text-[#0E0E0E] transition hover:bg-gray-200"
+            >
+              Sign in
+            </Link>
+          )}
         </motion.div>
       </div>
     </section>
