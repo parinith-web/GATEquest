@@ -316,7 +316,7 @@ function UserHeader({
             </span>
           )}
           <span className="font-mono text-sm text-gq-text-secondary leading-none">
-            Level {level} {title}
+            Level {level}
           </span>
         </div>
       </div>
@@ -330,6 +330,9 @@ function UserHeader({
         </span>
         <span className="text-gq-accent text-xl font-bold leading-none">
           {rankLoading ? "–" : rank ? `#${rank.toLocaleString()}` : "Unranked"}
+        </span>
+        <span className="font-mono text-sm text-gq-text-secondary leading-none">
+          {title}
         </span>
       </div>
 
