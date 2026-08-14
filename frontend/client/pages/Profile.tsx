@@ -321,10 +321,12 @@ function UserHeader({
         </div>
       </div>
 
-      {/* Middle: Rank — self-center so it sits level with the identity
-          block instead of sinking to the row's bottom edge (the row
-          itself is bottom-aligned via sm:items-end, for the XP block). */}
-      <div className="flex flex-col items-center gap-1.5 sm:px-8 self-center">
+      {/* Middle: Rank — same h-24 justify-between rhythm as the identity
+          block on the left, so each line sits level with its counterpart
+          (Rank/Parinith, Unranked/@parinith, Novice/Level 1), instead of
+          sinking to the row's bottom edge (the row itself is bottom-aligned
+          via sm:items-end, for the XP block). */}
+      <div className="flex flex-col items-center h-24 justify-between sm:px-8">
         <span className="font-bold text-xs tracking-widest text-gq-text-secondary uppercase">
           Rank
         </span>
