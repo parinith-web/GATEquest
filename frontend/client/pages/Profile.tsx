@@ -321,16 +321,16 @@ function UserHeader({
         </div>
       </div>
 
-      {/* Middle: Rank — same h-24 justify-between rhythm as the identity
-          block on the left, so each line sits level with its counterpart
-          (Rank/Parinith, Unranked/@parinith, Novice/Level 1), instead of
-          sinking to the row's bottom edge (the row itself is bottom-aligned
-          via sm:items-end, for the XP block). */}
-      <div className="flex flex-col items-center h-24 justify-between sm:px-8">
-        <span className="font-bold text-xs tracking-widest text-gq-text-secondary uppercase">
+      {/* Middle: Rank — same h-24 justify-between rhythm and left-aligned
+          text/color styling as the identity block, so each line sits level
+          with its counterpart (Rank/Parinith, Unranked/@parinith,
+          Novice/Level 1), instead of sinking to the row's bottom edge (the
+          row itself is bottom-aligned via sm:items-end, for the XP block). */}
+      <div className="flex flex-col items-start h-24 justify-between sm:px-8">
+        <span className="text-gq-accent text-xl font-bold leading-none">
           Rank
         </span>
-        <span className="text-gq-accent text-xl font-bold leading-none">
+        <span className="font-mono text-sm text-gq-text-secondary leading-none">
           {rankLoading ? "–" : rank ? `#${rank.toLocaleString()}` : "Unranked"}
         </span>
         <span className="font-mono text-sm text-gq-text-secondary leading-none">
