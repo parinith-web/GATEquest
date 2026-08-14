@@ -308,7 +308,7 @@ function UserHeader({
             </span>
           </div>
         </button>
-        <div className="flex flex-col gap-2 pt-0.5">
+        <div className="flex flex-col h-24 justify-between">
           <EditableName name={name} onSave={onSaveName} />
           {username && (
             <span className="font-mono text-sm text-gq-text-secondary leading-none">
@@ -321,8 +321,10 @@ function UserHeader({
         </div>
       </div>
 
-      {/* Middle: Rank */}
-      <div className="flex flex-col items-center gap-1.5 sm:px-8">
+      {/* Middle: Rank — self-center so it sits level with the identity
+          block instead of sinking to the row's bottom edge (the row
+          itself is bottom-aligned via sm:items-end, for the XP block). */}
+      <div className="flex flex-col items-center gap-1.5 sm:px-8 self-center">
         <span className="font-bold text-xs tracking-widest text-gq-text-secondary uppercase">
           Rank
         </span>
