@@ -300,6 +300,22 @@ func (s *Store) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarURL st
 	return nil
 }
 
+// UpdateName sets a user's display name (distinct from their unique
+// @username — this is the free-form "profile name" shown next to it,
+// e.g. "Parinith Reddy"). Unlike username there's no uniqueness
+// constraint to worry about.
+func (s *Store) UpdateName(ctx context.Context, userID uuid.UUID, name string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE users SET name = $1 WHERE id = $2`, name, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SetBranch sets the branch (e.g. "Computer Science") a user belongs to,
 // which scopes which weekly quest leaderboard they compete on. Can be
 // changed later from the profile page; a user only ever competes on

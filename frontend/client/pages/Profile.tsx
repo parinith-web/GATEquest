@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   fetchProfileActivity,
   updateAvatar,
+  updateName,
   type HeatmapDay,
   type HistoryItem,
   type SolveProgress,
@@ -95,12 +96,148 @@ const MIN_GRID_WIDTH = 640;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
+interface EditableNameProps {
+  name: string;
+  /** Persists the new name (API call) — throwing surfaces an inline
+   * error and keeps the field open so the user can retry. */
+  onSave: (name: string) => Promise<void>;
+}
+
+// Click-to-edit profile name (distinct from the immutable @username):
+// shows as plain text until clicked, then swaps to an inline input with
+// save/cancel controls. Enter saves, Escape cancels.
+function EditableName({ name, onSave }: EditableNameProps) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep the field in sync if `name` changes from outside while we're
+  // not actively editing it (e.g. a fresh /me load).
+  useEffect(() => {
+    if (!editing) setValue(name);
+  }, [name, editing]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const startEditing = () => {
+    setValue(name);
+    setError(null);
+    setEditing(true);
+  };
+
+  const cancel = () => {
+    setValue(name);
+    setError(null);
+    setEditing(false);
+  };
+
+  const save = async () => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setError("Name can't be empty.");
+      return;
+    }
+    if (trimmed === name) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(trimmed);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't update your name.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <input
+            ref={inputRef}
+            autoFocus
+            value={value}
+            maxLength={60}
+            disabled={saving}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save();
+              if (e.key === "Escape") cancel();
+            }}
+            className="bg-transparent border-b border-gq-accent text-gq-accent text-[22px] font-bold leading-tight tracking-tight outline-none w-40 sm:w-56 disabled:opacity-60"
+          />
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            title="Save name"
+            className="p-1 rounded text-gq-accent hover:text-white transition-colors disabled:opacity-50"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={cancel}
+            disabled={saving}
+            title="Cancel"
+            className="p-1 rounded text-gq-text-secondary hover:text-white transition-colors disabled:opacity-50"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        {error && <span className="text-xs text-[#f87171]">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEditing}
+      title="Edit your name"
+      className="group flex items-center gap-1.5 text-left w-fit"
+    >
+      <span className="text-gq-accent text-[22px] font-bold leading-tight tracking-tight">
+        {name}
+      </span>
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gq-text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+      >
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    </button>
+  );
+}
+
 interface UserHeaderProps {
   name: string;
   username: string;
   avatarUrl: string;
   uploading: boolean;
   onPickAvatar: () => void;
+  onSaveName: (name: string) => Promise<void>;
   xp: number;
   /** Rank from the user's most recent settled quest — there's no
    * separate global leaderboard yet. `null` while still loading, and
@@ -116,6 +253,7 @@ function UserHeader({
   avatarUrl,
   uploading,
   onPickAvatar,
+  onSaveName,
   xp,
   rank,
   rankLoading,
@@ -138,8 +276,10 @@ function UserHeader({
         Log out
       </button>
 
-      {/* Left: avatar + identity */}
-      <div className="flex items-end gap-6">
+      {/* Left: avatar + identity — items-start (rather than items-end)
+          keeps the name's top edge level with the avatar's top edge
+          instead of anchoring it to the avatar's bottom. */}
+      <div className="flex items-start gap-6">
         <button
           type="button"
           onClick={onPickAvatar}
@@ -168,14 +308,14 @@ function UserHeader({
             </span>
           </div>
         </button>
-        <div className="flex flex-col gap-1">
-          <span className="text-gq-accent text-[22px] font-bold leading-none tracking-tight">
-            {name}
-          </span>
+        <div className="flex flex-col gap-2 pt-0.5">
+          <EditableName name={name} onSave={onSaveName} />
           {username && (
-            <span className="font-mono text-sm text-gq-text-secondary">@{username}</span>
+            <span className="font-mono text-sm text-gq-text-secondary leading-none">
+              @{username}
+            </span>
           )}
-          <span className="font-mono text-sm text-gq-text-secondary mt-1">
+          <span className="font-mono text-sm text-gq-text-secondary leading-none">
             Level {level} {title}
           </span>
         </div>
@@ -802,6 +942,14 @@ export default function ProfilePage() {
     }
   };
 
+  // Re-thrown so EditableName can show the error inline next to the
+  // field and keep it open for a retry, rather than us swallowing it
+  // here.
+  const handleNameSave = async (newName: string) => {
+    await updateName(newName);
+    await refresh();
+  };
+
   return (
     <Layout>
       <div className="px-6 pb-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
@@ -831,6 +979,7 @@ export default function ProfilePage() {
           avatarUrl={user?.avatarUrl || ""}
           uploading={uploading}
           onPickAvatar={() => fileInputRef.current?.click()}
+          onSaveName={handleNameSave}
           xp={activity.xp}
           rank={rank}
           rankLoading={rankLoading}

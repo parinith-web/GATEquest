@@ -189,6 +189,7 @@ func main() {
 		// Profile: avatar updates, onboarding (branch + username), and
 		// the activity map / recent-history feed.
 		r.Post("/api/profile/avatar", apiHandlers.UpdateAvatar)
+		r.Post("/api/profile/name", apiHandlers.UpdateName)
 		r.Post("/api/profile/branch", apiHandlers.SetBranch)
 		r.Post("/api/profile/username", apiHandlers.SetUsername)
 		r.Get("/api/profile/activity", apiHandlers.GetActivity)

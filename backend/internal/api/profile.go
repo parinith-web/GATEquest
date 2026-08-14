@@ -62,6 +62,44 @@ func (h *Handlers) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "avatarUrl": url})
 }
 
+type updateNameRequest struct {
+	Name string `json:"name"`
+}
+
+// POST /api/profile/name
+// Updates the user's display/profile name — distinct from their unique
+// @username, this is the free-form name shown next to the avatar
+// (e.g. "Parinith Reddy").
+func (h *Handlers) UpdateName(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var body updateNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if len(name) > 60 {
+		writeError(w, http.StatusBadRequest, "name must be 60 characters or fewer")
+		return
+	}
+
+	if err := h.Store.UpdateName(r.Context(), user.ID, name); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update name")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "name": name})
+}
+
 type setBranchRequest struct {
 	// Branch is the full discipline name, e.g. "Computer Science" (from
 	// the main onboarding grid) or any other discipline name (from the

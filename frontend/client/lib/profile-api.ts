@@ -40,6 +40,19 @@ export async function updateAvatar(avatarUrl: string): Promise<string> {
   return data.avatarUrl;
 }
 
+/**
+ * Updates the current user's display/profile name — distinct from their
+ * unique @username, this is the free-form name shown next to the
+ * avatar (e.g. "Parinith Reddy").
+ */
+export async function updateName(name: string): Promise<string> {
+  const data = await jsonFetch<{ ok: boolean; name: string }>(
+    `${API_BASE}/profile/name`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  );
+  return data.name;
+}
+
 // --- Activity (heatmap + history) --------------------------------------
 
 export interface HeatmapDay {
